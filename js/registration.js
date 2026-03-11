@@ -633,8 +633,8 @@ export class RegistrationViewer {
 
             if (!this.interacting) {
                 const timeSinceClick = (new Date() - this.lastClick) / 1000.0;
-                if (timeSinceClick > 0.5) {
-                    const speed = Math.min(Math.max(timeSinceClick / 4.0 - 0.5, 0.0), 1.0) * 0.3;
+                if (timeSinceClick > 1.0) {
+                    const speed = Math.min(Math.max(timeSinceClick / 1.5 - 0.2, 0.0), 1.0) * 0.18;
                     this.controls.rotateCameraAngle(speed * deltaTime, 0.0);
                 }
             }
