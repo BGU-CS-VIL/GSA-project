@@ -7,24 +7,20 @@
 
     <title>Cross-Instance Gaussian Splatting Registration via Geometry-Aware Feature-Guided Alignment</title>
 
-    <meta name="description" content="">
+    <meta name="description" content="Cross-Instance Gaussian Splatting Registration via Geometry-Aware Feature-Guided Alignment (CVPR 2026)">
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
-    <meta property="og:image" content="https://cat3d.github.io/img/rep_img.jpeg">
-    <meta property="og:image:type" content="image/png">
-    <meta property="og:image:width" content="1711">
-    <meta property="og:image:height" content="576">
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://cat3d.github.io/" />
-    <meta property="og:title" content="CAT3D: Create Anything in 3D with Multi-View Diffusion Models" />
-    <meta property="og:description"
-        content="Advances in 3D reconstruction have enabled high-quality 3D capture, but require a user to collect hundreds to thousands of images to create a 3D scene. We present CAT3D, a method for creating anything in 3D by simulating this real-world capture process with a multi-view diffusion model. Given any number of input images and a set of target novel viewpoints, our model generates highly consistent novel views of a scene. These generated views can be used as input to robust 3D reconstruction techniques to produce 3D representations that can be rendered from any viewpoint in real-time. CAT3D can create entire 3D scenes in as little as one minute, and outperforms existing methods for single image and few-view 3D scene creation." />
+    <meta property="og:url" content="https://bgu-cs-vil.github.io/GSA-project/" />
+    <meta property="og:title" content="GSA: Cross-Instance Gaussian Splatting Registration" />
+    <meta property="og:description" content="Cross-Instance Gaussian Splatting Registration via Geometry-Aware Feature-Guided Alignment (CVPR 2026)" />
+    <meta property="og:image" content="https://bgu-cs-vil.github.io/GSA-project/assets/method_figure.png" />
+    <meta property="og:image:type" content="image/png" />
 
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="CAT3D: Create Anything in 3D with Multi-View Diffusion Models" />
-    <meta name="twitter:description"
-        content="Advances in 3D reconstruction have enabled high-quality 3D capture, but require a user to collect hundreds to thousands of images to create a 3D scene. We present CAT3D, a method for creating anything in 3D by simulating this real-world capture process with a multi-view diffusion model. Given any number of input images and a set of target novel viewpoints, our model generates highly consistent novel views of a scene. These generated views can be used as input to robust 3D reconstruction techniques to produce 3D representations that can be rendered from any viewpoint in real-time. CAT3D can create entire 3D scenes in as little as one minute, and outperforms existing methods for single image and few-view 3D scene creation." />
-    <meta name="twitter:image" content="https://cat3d.github.io/img/rep_img.jpeg" />
+    <meta name="twitter:title" content="GSA: Cross-Instance Gaussian Splatting Registration" />
+    <meta name="twitter:description" content="Cross-Instance Gaussian Splatting Registration via Geometry-Aware Feature-Guided Alignment (CVPR 2026)" />
+    <meta name="twitter:image" content="https://bgu-cs-vil.github.io/GSA-project/assets/method_figure.png" />
 
     <link rel="icon" href="data:,">
 
@@ -830,14 +826,14 @@ We present <b>Gaussian Splatting Alignment (GSA)</b>, a novel method for alignin
             let autoTimer = setInterval(() => {
                 currentIdx = (currentIdx + 1) % galleryData.length;
                 updateGallery();
-            }, 10000);
+            }, 8000);
 
             function resetAutoTimer() {
                 clearInterval(autoTimer);
                 autoTimer = setInterval(() => {
                     currentIdx = (currentIdx + 1) % galleryData.length;
                     updateGallery();
-                }, 10000);
+                }, 8000);
             }
 
             document.getElementById("gallery-prev").addEventListener("click", () => {
