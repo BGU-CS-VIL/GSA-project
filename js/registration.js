@@ -11,7 +11,29 @@ const SH_C0 = 0.28209479177387814;
 
 async function parsePLY(url, onProgress) {
     const response = await fetch(url);
-    const buffer = await response.arrayBuffer();
+
+    // Stream download with progress
+    let buffer;
+    const contentLength = response.headers.get("Content-Length");
+    if (contentLength && response.body) {
+        const total = parseInt(contentLength);
+        const reader = response.body.getReader();
+        const chunks = [];
+        let received = 0;
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            chunks.push(value);
+            received += value.length;
+            if (onProgress) onProgress(received / total * 0.8); // 80% for download
+        }
+        const all = new Uint8Array(received);
+        let pos = 0;
+        for (const chunk of chunks) { all.set(chunk, pos); pos += chunk.length; }
+        buffer = all.buffer;
+    } else {
+        buffer = await response.arrayBuffer();
+    }
     const bytes = new Uint8Array(buffer);
 
     // Find end_header
@@ -44,7 +66,7 @@ async function parsePLY(url, onProgress) {
         vertexData[i] = dataView.getFloat32(i * 4, true); // little-endian
     }
 
-    if (onProgress) onProgress(1.0);
+    if (onProgress) onProgress(0.9); // 90% after parsing, 10% left for feature computation
 
     return { vertexData, numVertices, numProps, headerText, headerEnd, rawBuffer: buffer };
 }
