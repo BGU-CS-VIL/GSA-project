@@ -602,10 +602,17 @@ export class RegistrationViewer {
 
     _initRenderer() {
         const startRadius = 8.0;
-        const cameraData = new SPLAT.CameraData();
         const dpr = window.devicePixelRatio || 1;
-        cameraData.fx = 0.5 * this.canvas.offsetWidth * dpr;
-        cameraData.fy = 0.5 * this.canvas.offsetHeight * dpr;
+
+        // Set canvas buffer to actual pixel size for sharp rendering on high-DPI screens
+        const cssWidth = this.canvas.offsetWidth;
+        const cssHeight = this.canvas.offsetHeight;
+        this.canvas.width = cssWidth * dpr;
+        this.canvas.height = cssHeight * dpr;
+
+        const cameraData = new SPLAT.CameraData();
+        cameraData.fx = 0.5 * cssWidth * dpr;
+        cameraData.fy = 0.5 * cssHeight * dpr;
 
         this.camera = new SPLAT.Camera(cameraData);
         this.renderer = new SPLAT.WebGLRenderer(this.canvas);
