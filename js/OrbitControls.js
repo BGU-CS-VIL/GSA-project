@@ -139,13 +139,13 @@ class OrbitControls {
 
             if (!dragging || !camera) return
 
-            const dx = (e.clientX - lastX) * this.canvasMirror[0]
-            const dy = (e.clientY - lastY) * this.canvasMirror[1]
+            const rawDx = e.clientX - lastX
+            const rawDy = e.clientY - lastY
 
             if (panning) {
                 const zoomNorm = computeZoomNorm()
-                const panX = -dx * this.panSpeed * 0.01
-                const panY = -dy * this.panSpeed * 0.01
+                const panX = -rawDx * this.panSpeed * 0.01
+                const panY = -rawDy * this.panSpeed * 0.01
                 const R = Matrix3.RotationFromQuaternion(camera.rotation).buffer
                 const right = new Vector3(R[0], R[3], R[6])
                 const up = new Vector3(R[1], R[4], R[7])
@@ -159,6 +159,8 @@ class OrbitControls {
                     }
                 }
             } else {
+                const dx = rawDx * this.canvasMirror[0]
+                const dy = rawDy * this.canvasMirror[1]
                 desiredAlpha -= dx * this.orbitSpeed * 0.003
                 desiredBeta += dy * this.orbitSpeed * 0.003
                 desiredBeta = Math.min(
@@ -230,8 +232,8 @@ class OrbitControls {
 
                 const touchX = (e.touches[0].clientX + e.touches[1].clientX) / 2
                 const touchY = (e.touches[0].clientY + e.touches[1].clientY) / 2
-                const dx = (touchX - lastX) * this.canvasMirror[0]
-                const dy = (touchY - lastY) * this.canvasMirror[1]
+                const dx = touchX - lastX
+                const dy = touchY - lastY
                 const R = Matrix3.RotationFromQuaternion(camera.rotation).buffer
                 const right = new Vector3(R[0], R[3], R[6])
                 const up = new Vector3(R[1], R[4], R[7])
