@@ -601,7 +601,8 @@ export class RegistrationViewer {
     }
 
     _initRenderer() {
-        const startRadius = 8.0;
+        const isMobile = window.matchMedia("(max-width: 768px)").matches;
+        const startRadius = isMobile ? 12.0 : 8.0;
         const dpr = window.devicePixelRatio || 1;
 
         // Set canvas buffer to actual pixel size for sharp rendering on high-DPI screens

@@ -221,7 +221,7 @@ class OrbitControls {
                 const distY = e.touches[0].clientY - e.touches[1].clientY
                 const dist = Math.sqrt(distX * distX + distY * distY)
                 const delta = lastDist - dist
-                desiredRadius += delta * this.zoomSpeed * 0.1 * zoomNorm
+                desiredRadius += delta * this.zoomSpeed * 0.3 * zoomNorm
                 desiredRadius = Math.min(
                     Math.max(desiredRadius, this.minZoom),
                     this.maxZoom
@@ -236,10 +236,10 @@ class OrbitControls {
                 const right = new Vector3(R[0], R[3], R[6])
                 const up = new Vector3(R[1], R[4], R[7])
                 desiredTarget = desiredTarget.add(
-                    right.multiply(-dx * this.panSpeed * 0.025 * zoomNorm)
+                    right.multiply(-dx * this.panSpeed * 0.08 * zoomNorm)
                 )
                 desiredTarget = desiredTarget.add(
-                    up.multiply(-dy * this.panSpeed * 0.025 * zoomNorm)
+                    up.multiply(-dy * this.panSpeed * 0.08 * zoomNorm)
                 )
                 lastX = touchX
                 lastY = touchY
