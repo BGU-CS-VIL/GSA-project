@@ -603,8 +603,9 @@ export class RegistrationViewer {
     _initRenderer() {
         const startRadius = 8.0;
         const cameraData = new SPLAT.CameraData();
-        cameraData.fx = 0.5 * this.canvas.offsetWidth;
-        cameraData.fy = 0.5 * this.canvas.offsetHeight;
+        const dpr = window.devicePixelRatio || 1;
+        cameraData.fx = 0.5 * this.canvas.offsetWidth * dpr;
+        cameraData.fy = 0.5 * this.canvas.offsetHeight * dpr;
 
         this.camera = new SPLAT.Camera(cameraData);
         this.renderer = new SPLAT.WebGLRenderer(this.canvas);
