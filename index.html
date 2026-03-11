@@ -56,6 +56,7 @@
     <script src="js/app.js"></script>
     <script src="js/synced_video_selector.js"></script>
 
+    <!-- Interactive 3DGS Viewer script (commented out for now)
     <script type="module">
         import { createSplatView, setSplatScene } from "./js/splats.js"
         const view = createSplatView("splat-picker");
@@ -93,6 +94,7 @@
             });
         });
     </script>
+    -->
     <script type="module">
         import { RegistrationViewer, customTransform } from "./js/registration.js";
 
@@ -107,14 +109,19 @@
                 scene4: "demo/car_category/synthetic_police.ply",
             };
 
-            // Load all models
-            for (const [key, url] of Object.entries(scenes)) {
-                await viewer.loadModel(key, url);
-            }
-
+            // Only load the two initially selected scenes (lazy-load others on demand)
             let currentMode = "rgb";
             let sourceKey = "scene1";
             let targetKey = "scene2";
+
+            async function ensureLoaded(key) {
+                if (!viewer.models[key]) {
+                    await viewer.loadModel(key, scenes[key]);
+                }
+            }
+
+            await ensureLoaded(sourceKey);
+            await ensureLoaded(targetKey);
             viewer.sourceKey = sourceKey;
             viewer.targetKey = targetKey;
 
@@ -122,14 +129,22 @@
             await viewer.renderCombined("rgb");
             viewer.setStatus("Ready. Select source/target and apply transforms.");
 
+            // Pre-load remaining models in background
+            (async () => {
+                for (const [key, url] of Object.entries(scenes)) {
+                    if (!viewer.models[key]) await viewer.loadModel(key, url);
+                }
+            })();
+
             // Source/target selectors
             document.querySelectorAll("#reg-source-selector .reg-scene-btn").forEach(btn => {
                 btn.addEventListener("click", async function() {
                     if (viewer.loading) return;
                     sourceKey = this.getAttribute("data-scene");
-                    viewer.sourceKey = sourceKey;
                     document.querySelectorAll("#reg-source-selector .reg-scene-btn").forEach(b => b.classList.remove("active"));
                     this.classList.add("active");
+                    await ensureLoaded(sourceKey);
+                    viewer.sourceKey = sourceKey;
                     viewer.appliedTransform = null;
                     viewer.icpResult = null;
                     viewer._invalidateSceneCache();
@@ -142,9 +157,10 @@
                 btn.addEventListener("click", async function() {
                     if (viewer.loading) return;
                     targetKey = this.getAttribute("data-scene");
-                    viewer.targetKey = targetKey;
                     document.querySelectorAll("#reg-target-selector .reg-scene-btn").forEach(b => b.classList.remove("active"));
                     this.classList.add("active");
+                    await ensureLoaded(targetKey);
+                    viewer.targetKey = targetKey;
                     viewer.appliedTransform = null;
                     viewer.icpResult = null;
                     viewer._invalidateSceneCache();
@@ -499,7 +515,7 @@ We present <b>Gaussian Splatting Alignment (GSA)</b>, a novel method for alignin
     </div>
     </div>
 
-    <!-- Interactive Viewer section (light gray) -->
+    <!-- Interactive Viewer section (commented out for now)
     <div style="background: #f5f5f7; padding: 30px 5%;">
     <div class="container-lg text-center" style="max-width: 1500px; margin: auto;">
             <!-- Interactive 3DGS Viewer -->
@@ -546,6 +562,7 @@ We present <b>Gaussian Splatting Alignment (GSA)</b>, a novel method for alignin
 
     </div>
     </div>
+    -->
 
     <!-- Citation section (white) -->
     <div style="background: #fff; padding: 30px 5%;">
