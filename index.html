@@ -130,16 +130,13 @@
             let sourceKey = "scene1";
             let targetKey = "scene2";
 
-            function getSceneUrl(key) {
-                return categories[currentCategory].scenes[key].url;
-            }
-
-            async function ensureLoaded(key) {
-                const url = getSceneUrl(key);
+            async function ensureLoaded(key, {silent = false, category = null} = {}) {
+                const cat = category || currentCategory;
+                const url = categories[cat].scenes[key].url;
                 // Use category+key as model key to avoid collisions
-                const modelKey = currentCategory + "_" + key;
+                const modelKey = cat + "_" + key;
                 if (!viewer.models[modelKey]) {
-                    await viewer.loadModel(modelKey, url);
+                    await viewer.loadModel(modelKey, url, {silent});
                 }
                 return modelKey;
             }
@@ -212,13 +209,19 @@
                 resetMirrorForCategory(cat);
                 updateIterUI();
 
-                // Pre-load remaining models in background
-                (async () => {
-                    const scenes = categories[currentCategory].scenes;
-                    for (const key of Object.keys(scenes)) {
-                        await ensureLoaded(key);
+                // Pre-load remaining models in background (all categories)
+                preloadAllModels();
+            }
+
+            async function preloadAllModels() {
+                for (const cat of Object.keys(categories)) {
+                    for (const key of Object.keys(categories[cat].scenes)) {
+                        const modelKey = cat + "_" + key;
+                        if (!viewer.models[modelKey]) {
+                            await ensureLoaded(key, {silent: true, category: cat});
+                        }
                     }
-                })();
+                }
             }
 
             // Category selector
@@ -245,13 +248,8 @@
             await viewer.renderCombined("rgb");
             viewer.setStatus("Ready. Select source/target and apply transforms.");
 
-            // Pre-load remaining models in background
-            (async () => {
-                const scenes = categories[currentCategory].scenes;
-                for (const key of Object.keys(scenes)) {
-                    await ensureLoaded(key);
-                }
-            })();
+            // Pre-load all remaining models in background (all categories, silently)
+            preloadAllModels();
 
             // Helper to set a slider value and update its label
             function setSlider(id, value) {

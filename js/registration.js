@@ -650,13 +650,17 @@ export class RegistrationViewer {
         if (this.statusEl) this.statusEl.textContent = msg;
     }
 
-    async loadModel(key, url) {
-        this.loading = true;
-        this.progressDialog.show();
-        this.progressIndicator.value = 0;
-        this.setStatus(`Loading ${key}...`);
+    async loadModel(key, url, {silent = false} = {}) {
+        if (!silent) {
+            this.loading = true;
+            this.progressDialog.show();
+            this.progressIndicator.value = 0;
+            this.setStatus(`Loading ${key}...`);
+        }
 
-        const ply = await parsePLY(url, (p) => { this.progressIndicator.value = p * 100; });
+        const ply = await parsePLY(url, (p) => {
+            if (!silent) this.progressIndicator.value = p * 100;
+        });
         const xyz = extractXYZ(ply.vertexData, ply.numVertices, ply.numProps);
         const sem = extractSemantics(ply.vertexData, ply.numVertices, ply.numProps);
 
@@ -665,9 +669,11 @@ export class RegistrationViewer {
 
         this.models[key] = { ply, xyz, sem, numVertices: ply.numVertices, numProps: ply.numProps, url, featureBuffer };
 
-        this.progressDialog.close();
-        this.loading = false;
-        this.setStatus("Ready.");
+        if (!silent) {
+            this.progressDialog.close();
+            this.loading = false;
+            this.setStatus("Ready.");
+        }
     }
 
     _invalidateSceneCache() {
