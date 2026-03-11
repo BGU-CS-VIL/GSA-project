@@ -65,7 +65,7 @@
             scene1: "demo/car_category/car_orange.ply",
             scene2: "demo/car_category/car_red.ply",
             scene3: "demo/car_category/purple_car.ply",
-            scene4: "demo/car_category/synthetic_police.ply",
+            scene4: "demo/car_category/synthetic_white_car.ply",
         };
         let currentScene = "scene1";
         let currentMode = "rgb";
@@ -102,72 +102,156 @@
         (async () => {
             const viewer = new RegistrationViewer("reg-viewer");
 
-            const scenes = {
-                scene1: "demo/car_category/car_orange.ply",
-                scene2: "demo/car_category/car_red.ply",
-                scene3: "demo/car_category/purple_car.ply",
-                scene4: "demo/car_category/synthetic_police.ply",
+            const categories = {
+                car: {
+                    label: "Cars",
+                    defaultMirror: [1, 1],
+                    defaultOffset: [4, 0, 0],
+                    scenes: {
+                        scene1: { url: "demo/car_category/car_orange.ply", label: "Car Orange" },
+                        scene2: { url: "demo/car_category/car_red.ply", label: "Car Red" },
+                        scene3: { url: "demo/car_category/purple_car.ply", label: "Purple Car" },
+                    }
+                },
+                airplane: {
+                    label: "Airplanes",
+                    defaultMirror: [1, -1],
+                    defaultOffset: [2, 0, 0],
+                    scenes: {
+                        scene1: { url: "demo/airplane_category/blue_white_airplane.ply", label: "Blue White" },
+                        scene2: { url: "demo/airplane_category/pink_white_airplane.ply", label: "Pink White" },
+                        scene3: { url: "demo/airplane_category/white_airplane.ply", label: "White" },
+                    }
+                },
             };
 
-            // Only load the two initially selected scenes (lazy-load others on demand)
+            let currentCategory = "car";
             let currentMode = "rgb";
             let sourceKey = "scene1";
             let targetKey = "scene2";
 
+            function getSceneUrl(key) {
+                return categories[currentCategory].scenes[key].url;
+            }
+
             async function ensureLoaded(key) {
-                if (!viewer.models[key]) {
-                    await viewer.loadModel(key, scenes[key]);
+                const url = getSceneUrl(key);
+                // Use category+key as model key to avoid collisions
+                const modelKey = currentCategory + "_" + key;
+                if (!viewer.models[modelKey]) {
+                    await viewer.loadModel(modelKey, url);
+                }
+                return modelKey;
+            }
+
+            function buildSceneButtons(selector, variant, activeScene) {
+                const container = document.getElementById(selector);
+                container.innerHTML = "";
+                const scenes = categories[currentCategory].scenes;
+                for (const [key, info] of Object.entries(scenes)) {
+                    const btn = document.createElement("button");
+                    btn.className = `btn btn-outline-${variant} reg-scene-btn${key === activeScene ? " active" : ""}`;
+                    btn.setAttribute("data-scene", key);
+                    btn.textContent = info.label;
+                    container.appendChild(btn);
                 }
             }
 
-            await ensureLoaded(sourceKey);
-            await ensureLoaded(targetKey);
-            viewer.sourceKey = sourceKey;
-            viewer.targetKey = targetKey;
+            function attachSceneListeners() {
+                document.querySelectorAll("#reg-source-selector .reg-scene-btn").forEach(btn => {
+                    btn.addEventListener("click", async function() {
+                        if (viewer.loading) return;
+                        sourceKey = this.getAttribute("data-scene");
+                        document.querySelectorAll("#reg-source-selector .reg-scene-btn").forEach(b => b.classList.remove("active"));
+                        this.classList.add("active");
+                        const modelKey = await ensureLoaded(sourceKey);
+                        viewer.sourceKey = modelKey;
+                        viewer.appliedTransform = null;
+                        viewer.icpResult = null;
+                        viewer._invalidateSceneCache();
+                        await viewer.renderCombined(currentMode);
+                        updateIterUI();
+                    });
+                });
 
-            // Initial render: both models combined, no transform
+                document.querySelectorAll("#reg-target-selector .reg-scene-btn").forEach(btn => {
+                    btn.addEventListener("click", async function() {
+                        if (viewer.loading) return;
+                        targetKey = this.getAttribute("data-scene");
+                        document.querySelectorAll("#reg-target-selector .reg-scene-btn").forEach(b => b.classList.remove("active"));
+                        this.classList.add("active");
+                        const modelKey = await ensureLoaded(targetKey);
+                        viewer.targetKey = modelKey;
+                        viewer.appliedTransform = null;
+                        viewer.icpResult = null;
+                        viewer._invalidateSceneCache();
+                        await viewer.renderCombined(currentMode);
+                        updateIterUI();
+                    });
+                });
+            }
+
+            async function switchCategory(cat) {
+                if (viewer.loading) return;
+                currentCategory = cat;
+                viewer.defaultOffset = categories[cat].defaultOffset;
+                sourceKey = "scene1";
+                targetKey = "scene2";
+                buildSceneButtons("reg-source-selector", "danger", sourceKey);
+                buildSceneButtons("reg-target-selector", "success", targetKey);
+                attachSceneListeners();
+
+                const srcModelKey = await ensureLoaded(sourceKey);
+                const tgtModelKey = await ensureLoaded(targetKey);
+                viewer.sourceKey = srcModelKey;
+                viewer.targetKey = tgtModelKey;
+                viewer.appliedTransform = null;
+                viewer.icpResult = null;
+                viewer._invalidateSceneCache();
+                await viewer.renderCombined(currentMode);
+                resetMirrorForCategory(cat);
+                updateIterUI();
+
+                // Pre-load remaining models in background
+                (async () => {
+                    const scenes = categories[currentCategory].scenes;
+                    for (const key of Object.keys(scenes)) {
+                        await ensureLoaded(key);
+                    }
+                })();
+            }
+
+            // Category selector
+            document.querySelectorAll("#reg-category-selector .reg-category-btn").forEach(btn => {
+                btn.addEventListener("click", async function() {
+                    if (viewer.loading) return;
+                    const cat = this.getAttribute("data-category");
+                    if (cat === currentCategory) return;
+                    document.querySelectorAll("#reg-category-selector .reg-category-btn").forEach(b => b.classList.remove("active"));
+                    this.classList.add("active");
+                    await switchCategory(cat);
+                });
+            });
+
+            // Initial load
+            buildSceneButtons("reg-source-selector", "danger", sourceKey);
+            buildSceneButtons("reg-target-selector", "success", targetKey);
+            attachSceneListeners();
+
+            const srcModelKey = await ensureLoaded(sourceKey);
+            const tgtModelKey = await ensureLoaded(targetKey);
+            viewer.sourceKey = srcModelKey;
+            viewer.targetKey = tgtModelKey;
             await viewer.renderCombined("rgb");
             viewer.setStatus("Ready. Select source/target and apply transforms.");
 
             // Pre-load remaining models in background
             (async () => {
-                for (const [key, url] of Object.entries(scenes)) {
-                    if (!viewer.models[key]) await viewer.loadModel(key, url);
+                const scenes = categories[currentCategory].scenes;
+                for (const key of Object.keys(scenes)) {
+                    await ensureLoaded(key);
                 }
             })();
-
-            // Source/target selectors
-            document.querySelectorAll("#reg-source-selector .reg-scene-btn").forEach(btn => {
-                btn.addEventListener("click", async function() {
-                    if (viewer.loading) return;
-                    sourceKey = this.getAttribute("data-scene");
-                    document.querySelectorAll("#reg-source-selector .reg-scene-btn").forEach(b => b.classList.remove("active"));
-                    this.classList.add("active");
-                    await ensureLoaded(sourceKey);
-                    viewer.sourceKey = sourceKey;
-                    viewer.appliedTransform = null;
-                    viewer.icpResult = null;
-                    viewer._invalidateSceneCache();
-                    await viewer.renderCombined(currentMode);
-                    updateIterUI();
-                });
-            });
-
-            document.querySelectorAll("#reg-target-selector .reg-scene-btn").forEach(btn => {
-                btn.addEventListener("click", async function() {
-                    if (viewer.loading) return;
-                    targetKey = this.getAttribute("data-scene");
-                    document.querySelectorAll("#reg-target-selector .reg-scene-btn").forEach(b => b.classList.remove("active"));
-                    this.classList.add("active");
-                    await ensureLoaded(targetKey);
-                    viewer.targetKey = targetKey;
-                    viewer.appliedTransform = null;
-                    viewer.icpResult = null;
-                    viewer._invalidateSceneCache();
-                    await viewer.renderCombined(currentMode);
-                    updateIterUI();
-                });
-            });
 
             // Helper to set a slider value and update its label
             function setSlider(id, value) {
@@ -278,17 +362,36 @@
             });
 
             function updateIterUI() {
+                const ticksContainer = document.getElementById("reg-iter-ticks");
                 if (viewer.icpResult) {
                     const n = viewer.icpResult.iterations.length;
                     iterSlider.max = n - 1;
                     iterSlider.value = viewer.currentIteration;
                     iterSlider.disabled = false;
                     iterLabel.textContent = viewer.currentIteration === 0 ? "Before registration (centroid aligned)" : `Iteration ${viewer.currentIteration}`;
+
+                    // Build tick marks + numbers below slider
+                    ticksContainer.innerHTML = "";
+                    for (let i = 0; i < n; i++) {
+                        const pct = n === 1 ? 50 : (i / (n - 1)) * 100;
+                        const tick = document.createElement("div");
+                        const isActive = i === viewer.currentIteration;
+                        tick.style.cssText = `position: absolute; left: ${pct}%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center;`;
+                        const bar = document.createElement("div");
+                        bar.style.cssText = `width: 2px; height: ${isActive ? "10px" : "6px"}; background: ${isActive ? "#0d6efd" : "#aaa"}; transition: all 0.2s;`;
+                        const num = document.createElement("div");
+                        num.textContent = i === 0 ? "Init" : i;
+                        num.style.cssText = `font-size: 0.65em; color: ${isActive ? "#0d6efd" : "#888"}; font-weight: ${isActive ? "700" : "400"}; margin-top: 1px;`;
+                        tick.appendChild(bar);
+                        tick.appendChild(num);
+                        ticksContainer.appendChild(tick);
+                    }
                 } else {
                     iterSlider.max = 0;
                     iterSlider.value = 0;
                     iterSlider.disabled = true;
                     iterLabel.textContent = "Run solver first";
+                    ticksContainer.innerHTML = "";
                 }
             }
 
@@ -296,6 +399,8 @@
             document.getElementById("reg-mode-toggle").addEventListener("click", async function() {
                 if (viewer.loading) return;
                 currentMode = currentMode === "rgb" ? "features" : "rgb";
+                const hint = document.getElementById("reg-mode-hint");
+                if (hint) hint.style.display = currentMode === "rgb" ? "" : "none";
                 this.textContent = currentMode === "rgb" ? "Show Features" : "Show RGB";
 
                 if (viewer.icpResult && viewer.currentIteration >= 0) {
@@ -307,12 +412,50 @@
                 }
             });
 
+            // CSS-based mirror: just flip the canvas rendering
+            const mirrorState = [1, 1, 1]; // [scaleX, scaleY for vertical, unused]
+            function updateCanvasMirror() {
+                const canvas = document.getElementById("reg-canvas");
+                canvas.style.transform = `scaleX(${mirrorState[0]}) scaleY(${mirrorState[1]})`;
+                // Sync to orbit controls so input directions match the mirrored view
+                if (viewer.controls) viewer.controls.canvasMirror = [mirrorState[0], mirrorState[1]];
+            }
+            function resetMirrorForCategory(cat) {
+                const dm = categories[cat].defaultMirror;
+                mirrorState[0] = dm[0];
+                mirrorState[1] = dm[1];
+                updateCanvasMirror();
+            }
+            document.getElementById("reg-mirror-x").addEventListener("click", () => {
+                mirrorState[0] *= -1;
+                updateCanvasMirror();
+            });
+            document.getElementById("reg-mirror-y").addEventListener("click", () => {
+                mirrorState[1] *= -1;
+                updateCanvasMirror();
+            });
+            // Mirror Z doesn't have a direct CSS equivalent for a 2D projection,
+            // but we can combine X+Y flip which is equivalent to a 180° rotation (Z mirror in screen space)
+            document.getElementById("reg-mirror-z").addEventListener("click", () => {
+                mirrorState[0] *= -1;
+                mirrorState[1] *= -1;
+                updateCanvasMirror();
+            });
+
             updateIterUI();
         })();
     </script>
     <style>
         .final-element {
             white-space: nowrap;
+        }
+        @keyframes pulse-hint {
+            0%, 100% { opacity: 0.4; transform: translateX(0) scale(1); }
+            50% { opacity: 1; transform: translateX(6px) scale(1.05); }
+        }
+        @keyframes pulse-hint-left {
+            0%, 100% { opacity: 0.5; transform: translateX(0); }
+            50% { opacity: 1; transform: translateX(-4px); }
         }
     </style>
 </head>
@@ -460,9 +603,14 @@ We present <b>Gaussian Splatting Alignment (GSA)</b>, a novel method for alignin
                         </div>
 
                         <!-- Iteration slider -->
-                        <div style="margin-bottom: 10px; display: flex; gap: 10px; align-items: center; justify-content: center;">
+                        <div style="margin-bottom: 10px; display: flex; gap: 10px; align-items: center; justify-content: center; flex-wrap: wrap;">
                             <label class="form-label mb-0"><strong>Iteration:</strong></label>
-                            <input type="range" id="reg-iter-slider" class="form-range" min="0" max="0" value="0" disabled style="width: 200px;">
+                            <div style="display: flex; flex-direction: column; align-items: stretch; width: 300px;">
+                                <input type="range" id="reg-iter-slider" class="form-range" min="0" max="0" value="0" disabled style="width: 100%;">
+                                <div id="reg-iter-ticks" style="position: relative; height: 28px; margin-top: -4px;">
+                                    <!-- Populated dynamically -->
+                                </div>
+                            </div>
                             <span id="reg-iter-label" style="font-size: 0.85em;">Run solver first</span>
                         </div>
 
@@ -480,32 +628,41 @@ We present <b>Gaussian Splatting Alignment (GSA)</b>, a novel method for alignin
                                 style="max-width:640px; aspect-ratio: 1; cursor: grab; margin: 0 auto;"></canvas>
                         </div>
 
-                        <!-- Mode toggle -->
-                        <div style="margin-top: 8px; text-align: center;">
+                        <p style="text-align: center; font-size: 0.82em; color: #555; margin: 4px 0 0;">Left-click drag: rotate &nbsp;|&nbsp; Ctrl/Shift + drag: pan &nbsp;|&nbsp; Scroll: zoom</p>
+
+                        <!-- Mode toggle and view controls -->
+                        <div style="margin-top: 8px; text-align: center; display: flex; gap: 8px; align-items: center; justify-content: center;">
+                            <span id="reg-mode-hint" style="font-size: 1.5em; font-weight: 700; color: #9b59b6; animation: pulse-hint 1.6s ease-in-out infinite;">Try it! &#10547;</span>
                             <button id="reg-mode-toggle" class="btn btn-primary btn-lg" style="font-size: 1.1em; padding: 12px 20px;">Show Features</button>
+                            <button id="reg-mirror-x" class="btn btn-outline-secondary btn-sm">Mirror X</button>
+                            <button id="reg-mirror-y" class="btn btn-outline-secondary btn-sm">Mirror Y</button>
+                            <button id="reg-mirror-z" class="btn btn-outline-secondary btn-sm">Mirror Z</button>
                         </div>
 
                         <!-- Status -->
                         <div id="reg-status" style="font-size: 0.85em; color: #555; margin-top: 5px; text-align: center;">Loading models...</div>
+
+                        <!-- Category selector -->
+                        <div style="margin-top: 10px; text-align: center;">
+                            <label class="form-label mb-1"><strong>Category:</strong></label>
+                            <div class="btn-group" id="reg-category-selector">
+                                <button class="btn btn-outline-info reg-category-btn active" data-category="car">Cars</button>
+                                <button class="btn btn-outline-info reg-category-btn" data-category="airplane">Airplanes</button>
+                            </div>
+                        </div>
 
                         <!-- Source/Target selectors -->
                         <div style="margin-top: 10px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: center;">
                             <div>
                                 <label class="form-label mb-0"><strong>Source:</strong></label>
                                 <div class="btn-group" id="reg-source-selector">
-                                    <button class="btn btn-outline-danger reg-scene-btn active" data-scene="scene1">Car Orange</button>
-                                    <button class="btn btn-outline-danger reg-scene-btn" data-scene="scene2">Car Red</button>
-                                    <button class="btn btn-outline-danger reg-scene-btn" data-scene="scene3">Purple Car</button>
-                                    <button class="btn btn-outline-danger reg-scene-btn" data-scene="scene4">Police Car</button>
+                                    <!-- Populated dynamically -->
                                 </div>
                             </div>
                             <div>
                                 <label class="form-label mb-0"><strong>Target:</strong></label>
                                 <div class="btn-group" id="reg-target-selector">
-                                    <button class="btn btn-outline-success reg-scene-btn" data-scene="scene1">Car Orange</button>
-                                    <button class="btn btn-outline-success reg-scene-btn active" data-scene="scene2">Car Red</button>
-                                    <button class="btn btn-outline-success reg-scene-btn" data-scene="scene3">Purple Car</button>
-                                    <button class="btn btn-outline-success reg-scene-btn" data-scene="scene4">Police Car</button>
+                                    <!-- Populated dynamically -->
                                 </div>
                             </div>
                         </div>
@@ -515,6 +672,190 @@ We present <b>Gaussian Splatting Alignment (GSA)</b>, a novel method for alignin
     </div>
     </div>
 
+
+    <!-- Coarse/Fine Results Gallery (gray) -->
+    <div style="background: #f5f5f7; padding: 50px 5%;">
+    <div class="container-lg" style="max-width: 1100px; margin: auto;">
+        <h2 style="text-align: center; margin-bottom: 8px; font-weight: 700;">Coarse-to-Fine Registration Results</h2>
+        <p style="text-align: center; color: #777; margin-bottom: 30px; font-size: 1.05em;">Visualizing random initialization, coarse alignment, and fine registration from two different views.</p>
+
+        <div id="gallery-container" style="position: relative; background: #fff; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.08); padding: 30px 30px 20px;">
+
+            <!-- Dots (static) -->
+            <div style="text-align: center; margin-bottom: 10px;">
+                <div id="gallery-dots" style="display: flex; justify-content: center; gap: 8px;"></div>
+            </div>
+
+            <!-- Fadeable content -->
+            <div id="gallery-fade-content" style="transition: opacity 0.7s ease;">
+
+            <!-- Category label -->
+            <h4 id="gallery-category-label" style="margin: 0 0 15px; color: #333; font-weight: 600; font-size: 1.3em; text-align: center;"></h4>
+
+            <!-- Column headers -->
+            <div style="display: flex; gap: 12px; justify-content: center; margin-bottom: 6px;">
+                <div style="flex: 1; max-width: 320px; text-align: center;">
+                    <span style="font-weight: 700; font-size: 0.95em; color: #e74c3c; text-transform: uppercase; letter-spacing: 0.5px;">Random Init</span>
+                </div>
+                <div style="flex: 1; max-width: 320px; text-align: center;">
+                    <span style="font-weight: 700; font-size: 0.95em; color: #f39c12; text-transform: uppercase; letter-spacing: 0.5px;">Coarse</span>
+                </div>
+                <div style="flex: 1; max-width: 320px; text-align: center;">
+                    <span style="font-weight: 700; font-size: 0.95em; color: #27ae60; text-transform: uppercase; letter-spacing: 0.5px;">Fine</span>
+                </div>
+            </div>
+
+            <!-- Row 1: View 1 -->
+            <div style="display: flex; gap: 12px; justify-content: center; margin-bottom: 4px;">
+                <div style="flex: 1; max-width: 320px; text-align: center;">
+                    <img id="gallery-random-v1" src="" alt="Random View 1" style="width: 100%; aspect-ratio: 4/3; object-fit: contain; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); transition: transform 0.2s;" onmouseenter="this.style.transform='scale(1.03)'" onmouseleave="this.style.transform='scale(1)'">
+                </div>
+                <div style="flex: 1; max-width: 320px; text-align: center;">
+                    <img id="gallery-coarse-v1" src="" alt="Coarse View 1" style="width: 100%; aspect-ratio: 4/3; object-fit: contain; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); transition: transform 0.2s;" onmouseenter="this.style.transform='scale(1.03)'" onmouseleave="this.style.transform='scale(1)'">
+                </div>
+                <div style="flex: 1; max-width: 320px; text-align: center;">
+                    <img id="gallery-fine-v1" src="" alt="Fine View 1" style="width: 100%; aspect-ratio: 4/3; object-fit: contain; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); transition: transform 0.2s;" onmouseenter="this.style.transform='scale(1.03)'" onmouseleave="this.style.transform='scale(1)'">
+                </div>
+            </div>
+
+            <!-- Row labels -->
+            <div style="display: flex; gap: 12px; justify-content: center;">
+                <div style="flex: 1; max-width: 320px; text-align: center;">
+                    <span style="font-size: 1em; color: #555; font-weight: 600;">View 1</span>
+                </div>
+                <div style="flex: 1; max-width: 320px;"></div>
+                <div style="flex: 1; max-width: 320px;"></div>
+            </div>
+
+            <!-- Row 2: View 2 -->
+            <div style="display: flex; gap: 12px; justify-content: center; margin-bottom: 4px; margin-top: 8px;">
+                <div style="flex: 1; max-width: 320px; text-align: center;">
+                    <img id="gallery-random-v2" src="" alt="Random View 2" style="width: 100%; aspect-ratio: 4/3; object-fit: contain; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); transition: transform 0.2s;" onmouseenter="this.style.transform='scale(1.03)'" onmouseleave="this.style.transform='scale(1)'">
+                </div>
+                <div style="flex: 1; max-width: 320px; text-align: center;">
+                    <img id="gallery-coarse-v2" src="" alt="Coarse View 2" style="width: 100%; aspect-ratio: 4/3; object-fit: contain; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); transition: transform 0.2s;" onmouseenter="this.style.transform='scale(1.03)'" onmouseleave="this.style.transform='scale(1)'">
+                </div>
+                <div style="flex: 1; max-width: 320px; text-align: center;">
+                    <img id="gallery-fine-v2" src="" alt="Fine View 2" style="width: 100%; aspect-ratio: 4/3; object-fit: contain; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); transition: transform 0.2s;" onmouseenter="this.style.transform='scale(1.03)'" onmouseleave="this.style.transform='scale(1)'">
+                </div>
+            </div>
+
+            <!-- Row labels -->
+            <div style="display: flex; gap: 12px; justify-content: center; margin-bottom: 15px;">
+                <div style="flex: 1; max-width: 320px; text-align: center;">
+                    <span style="font-size: 1em; color: #555; font-weight: 600;">View 2</span>
+                </div>
+                <div style="flex: 1; max-width: 320px;"></div>
+                <div style="flex: 1; max-width: 320px;"></div>
+            </div>
+
+            </div><!-- end gallery-fade-content -->
+
+            <!-- Navigation arrows -->
+            <div style="display: flex; justify-content: center; align-items: center; gap: 30px;">
+                <button id="gallery-prev" class="btn btn-outline-secondary" style="font-size: 1.4em; padding: 6px 20px; border-radius: 50px; border-width: 2px; transition: all 0.2s;">&larr;</button>
+                <span id="gallery-page-indicator" style="color: #999; font-size: 0.9em; min-width: 60px; text-align: center;"></span>
+                <button id="gallery-next" class="btn btn-outline-secondary" style="font-size: 1.4em; padding: 6px 20px; border-radius: 50px; border-width: 2px; transition: all 0.2s;">&rarr;</button>
+            </div>
+        </div>
+    </div>
+    </div>
+
+    <script>
+        (function() {
+            const galleryData = [
+                {
+                    label: "Chairs",
+                    folder: "coarse_fine_results/chairs",
+                    prefix: "chairs",
+                    views: ["view1", "view2"]
+                },
+                {
+                    label: "Boats",
+                    folder: "coarse_fine_results/boats",
+                    prefix: "boats",
+                    views: ["view1", "view2"]
+                },
+                {
+                    label: "Airplanes",
+                    folder: "coarse_fine_results/airplanes",
+                    prefix: "airplanes",
+                    views: ["view3", "view4"]
+                },
+            ];
+
+            let currentIdx = 0;
+
+            function updateGallery(animate = true) {
+                const fadeEl = document.getElementById("gallery-fade-content");
+                function applyContent() {
+                    const data = galleryData[currentIdx];
+                    const v1 = data.views[0];
+                    const v2 = data.views[1];
+
+                    document.getElementById("gallery-category-label").textContent = data.label;
+                    document.getElementById("gallery-random-v1").src = `${data.folder}/random_${data.prefix}_${v1}.png`;
+                    document.getElementById("gallery-coarse-v1").src = `${data.folder}/coarse_${data.prefix}_${v1}.png`;
+                    document.getElementById("gallery-fine-v1").src   = `${data.folder}/fine_${data.prefix}_${v1}.png`;
+                    document.getElementById("gallery-random-v2").src = `${data.folder}/random_${data.prefix}_${v2}.png`;
+                    document.getElementById("gallery-coarse-v2").src = `${data.folder}/coarse_${data.prefix}_${v2}.png`;
+                    document.getElementById("gallery-fine-v2").src   = `${data.folder}/fine_${data.prefix}_${v2}.png`;
+                }
+
+                if (animate) {
+                    fadeEl.style.opacity = "0";
+                    setTimeout(() => {
+                        applyContent();
+                        requestAnimationFrame(() => {
+                            fadeEl.style.opacity = "1";
+                        });
+                    }, 700);
+                } else {
+                    applyContent();
+                }
+
+                document.getElementById("gallery-page-indicator").textContent = `${currentIdx + 1} / ${galleryData.length}`;
+                document.getElementById("gallery-prev").disabled = false;
+                document.getElementById("gallery-next").disabled = false;
+
+                // Update dots
+                const dotsContainer = document.getElementById("gallery-dots");
+                dotsContainer.innerHTML = "";
+                galleryData.forEach((d, i) => {
+                    const dot = document.createElement("span");
+                    dot.style.cssText = `width: 10px; height: 10px; border-radius: 50%; cursor: pointer; transition: all 0.2s; background: ${i === currentIdx ? "#333" : "#ccc"};`;
+                    dot.addEventListener("click", () => { currentIdx = i; updateGallery(); resetAutoTimer(); });
+                    dotsContainer.appendChild(dot);
+                });
+            }
+
+            let autoTimer = setInterval(() => {
+                currentIdx = (currentIdx + 1) % galleryData.length;
+                updateGallery();
+            }, 10000);
+
+            function resetAutoTimer() {
+                clearInterval(autoTimer);
+                autoTimer = setInterval(() => {
+                    currentIdx = (currentIdx + 1) % galleryData.length;
+                    updateGallery();
+                }, 10000);
+            }
+
+            document.getElementById("gallery-prev").addEventListener("click", () => {
+                currentIdx = (currentIdx - 1 + galleryData.length) % galleryData.length;
+                updateGallery();
+                resetAutoTimer();
+            });
+            document.getElementById("gallery-next").addEventListener("click", () => {
+                currentIdx = (currentIdx + 1) % galleryData.length;
+                updateGallery();
+                resetAutoTimer();
+            });
+
+            updateGallery(false);
+        })();
+    </script>
 
     <!-- Citation section (white) -->
     <div style="background: #fff; padding: 30px 5%;">

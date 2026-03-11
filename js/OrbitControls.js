@@ -12,10 +12,11 @@ class OrbitControls {
     minZoom = 0.1
     maxZoom = 30
     orbitSpeed = 1
-    panSpeed = 1
+    panSpeed = 3
     zoomSpeed = 1
     dampening = 0.12
     maxPanDistance = undefined
+    canvasMirror = [1, 1] // [scaleX, scaleY] — set from outside to match CSS mirror
 
     constructor(
         camera,
@@ -76,7 +77,19 @@ class OrbitControls {
         // Add in a method to manually rotate the camera in our branch.
         this.rotateCameraAngle = (deltaAlpha, deltaBeta) => {
             desiredAlpha += deltaAlpha;
-            deltaBeta += deltaBeta;
+            desiredBeta += deltaBeta;
+        }
+
+        // Flip view: rotate camera 180° horizontally (instant)
+        this.flipHorizontal = () => {
+            alpha += Math.PI;
+            desiredAlpha += Math.PI;
+        }
+
+        // Flip view: negate vertical angle (instant)
+        this.flipVertical = () => {
+            beta = -beta;
+            desiredBeta = -desiredBeta;
         }
 
         const computeZoomNorm = () => {
@@ -107,7 +120,7 @@ class OrbitControls {
             preventDefault(e)
 
             dragging = true
-            panning = e.button === 2
+            panning = e.button === 2 || e.button === 1 || e.shiftKey || e.ctrlKey
             lastX = e.clientX
             lastY = e.clientY
             window.addEventListener("mouseup", onMouseUp)
@@ -126,13 +139,13 @@ class OrbitControls {
 
             if (!dragging || !camera) return
 
-            const dx = e.clientX - lastX
-            const dy = e.clientY - lastY
+            const dx = (e.clientX - lastX) * this.canvasMirror[0]
+            const dy = (e.clientY - lastY) * this.canvasMirror[1]
 
             if (panning) {
                 const zoomNorm = computeZoomNorm()
-                const panX = -dx * this.panSpeed * 0.01 * zoomNorm
-                const panY = -dy * this.panSpeed * 0.01 * zoomNorm
+                const panX = -dx * this.panSpeed * 0.01
+                const panY = -dy * this.panSpeed * 0.01
                 const R = Matrix3.RotationFromQuaternion(camera.rotation).buffer
                 const right = new Vector3(R[0], R[3], R[6])
                 const up = new Vector3(R[1], R[4], R[7])

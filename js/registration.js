@@ -586,6 +586,7 @@ export class RegistrationViewer {
         this.models = {}; // key -> { ply, xyz, sem, numVertices, numProps }
         this.sourceKey = null;
         this.targetKey = null;
+        this.defaultOffset = [4, 0, 0];
 
         // ICP state
         this.icpResult = null;
@@ -666,7 +667,7 @@ export class RegistrationViewer {
 
         this.progressDialog.close();
         this.loading = false;
-        this.setStatus(`Loaded ${key} (${ply.numVertices} vertices)`);
+        this.setStatus("Ready.");
     }
 
     _invalidateSceneCache() {
@@ -675,8 +676,7 @@ export class RegistrationViewer {
     }
 
     _getTransformKey(sourceR, sourceT, sourceS) {
-        if (!sourceR) return "none";
-        // Use first/last elements + scale for a fast key
+        if (!sourceR) return `none`;
         return `${sourceR[0].toFixed(6)}_${sourceR[4].toFixed(6)}_${sourceR[8].toFixed(6)}_${sourceT[0].toFixed(4)}_${sourceT[1].toFixed(4)}_${sourceT[2].toFixed(4)}_${sourceS.toFixed(6)}`;
     }
 
@@ -713,7 +713,7 @@ export class RegistrationViewer {
                 srcBuffer = buildTransformedPLYBuffer(
                     srcModel.ply.rawBuffer, srcModel.ply.headerEnd,
                     srcModel.numVertices, srcModel.numProps,
-                    identity3x3(), [4, 0, 0], 1.0
+                    identity3x3(), this.defaultOffset, 1.0
                 );
             }
 
@@ -889,4 +889,5 @@ export class RegistrationViewer {
         const tf = this.getIterationTransform(iterIdx);
         await this.renderCombined(mode, tf.R, tf.t, tf.s);
     }
+
 }
