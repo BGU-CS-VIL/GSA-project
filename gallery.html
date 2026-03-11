@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html>
+
+<head lang="en">
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+
+    <title>CAT3D: Create Anything in 3D with Multi-View Diffusion Models</title>
+
+    <meta name="description" content="">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <meta property="og:image" content="https://cat3d.github.io/img/method.jpg">
+    <meta property="og:image:type" content="image/png">
+    <meta property="og:image:width" content="1711">
+    <meta property="og:image:height" content="576">
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://cat3d.github.io/" />
+    <meta property="og:title" content="CAT3D: Create Anything in 3D with Multi-View Diffusion Models" />
+    <meta property="og:description"
+        content="Advances in 3D reconstruction have enabled high-quality 3D capture, but require a user to collect hundreds to thousands of images to create a 3D scene. We present CAT3D, a method for creating anything in 3D by simulating this real-world capture process with a multi-view diffusion model. Given any number of input images and a set of target novel viewpoints, our model generates consistent novel images of a scene. These generated views can be used as input to standard 3D reconstruction techniques to produce explicit 3D representations that can be rendered from any viewpoint in real time. CAT3D can create entire 3D scenes in as little as one minute, and outperforms existing methods for single image and few-view 3D scene creation." />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="CAT3D: Create Anything in 3D with Multi-View Diffusion Models" />
+    <meta name="twitter:description"
+        content="Advances in 3D reconstruction have enabled high-quality 3D capture, but require a user to collect hundreds to thousands of images to create a 3D scene. We present CAT3D, a method for creating anything in 3D by simulating this real-world capture process with a multi-view diffusion model. Given any number of input images and a set of target novel viewpoints, our model generates consistent novel images of a scene. These generated views can be used as input to standard 3D reconstruction techniques to produce explicit 3D representations that can be rendered from any viewpoint in real time. CAT3D can create entire 3D scenes in as little as one minute, and outperforms existing methods for single image and few-view 3D scene creation." />
+    <meta name="twitter:image" content="https://cat3d.github.io/img/method.jpg" />
+    <!-- <meta
+  	http-equiv="Content-Security-Policy"
+  	content="script-src-elem * 'self' 'unsafe-inline';" />-->
+
+    <link rel="icon" href="favicon.ico">
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.5.0/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.4.0/css/font-awesome.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.8.0/codemirror.min.css">
+    <link rel="stylesheet" href="css/app.css">
+    <link rel="stylesheet" href="css/fontawesome.all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css">
+
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-8ZERS5BVPS"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag() { dataLayer.push(arguments); }
+        gtag('js', new Date());
+        gtag('config', 'G-8ZERS5BVPS');
+    </script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.8.0/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/1.5.3/clipboard.min.js"></script>
+    <script type="text/javascript" async
+        src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/MathJax.js?config=TeX-MML-AM_CHTML">
+        </script>
+    <script defer src="js/fontawesome.all.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.5.0/Chart.min.js"></script>
+
+    <script src="js/app.js"></script>
+    <script src="js/synced_video_selector.js"></script>
+
+    <style>
+        .final-element {
+            white-space: nowrap;
+        }
+    </style>
+</head>
+
+<body style="padding: 5%; padding-top: min(15px, 5%); width: 100%">
+    <div class="container-lg text-center" style="max-width: 1500px; margin: auto;" id="main">
+        <!-- <div class="container" id="main"> -->
+        <div class="row">
+                <h2 class="col-md-12 text-center">
+                    <span class="active3d"><b>CAT3D</b></span>: Create Anything in 3D with Multi-View Diffusion Models</br>
+                </h2>
+        </div>
+        <div class="row text-center">
+            <div class="col-md-3">
+            </div>
+            <div class="container-fluid text-center">
+                <ul class="list-inline" style="white-space: nowrap; margin:0px 0px 0px 0px;" >
+                    <li><a style="font-size: calc(min(3vw, 15px))" href="https://ruiqigao.github.io/">Ruiqi Gao¹</a><!--don't add a linebreak here! it adds a space!--><div style="display: inline; font-family:verdana">*</div>
+                    </li>
+                    <li><a style="font-size: calc(min(3vw, 15px))" href="https://holynski.org/">Aleksander Holynski¹</a><!--don't add a linebreak here! it adds a space!--><div style="display: inline; font-family:verdana">*</div>
+                    </li><br>
+                    <li><a style="font-size: calc(min(3vw, 15px))" href="https://henzler.github.io/">Philipp Henzler²</a></li>
+                    <li><a style="font-size: calc(min(3vw, 15px))" href="https://github.com/ArthurBrussee">Arthur Brussee¹</a></li>
+                    <li><a style="font-size: calc(min(3vw, 15px))" href="https://ricardomartinbrualla.com/">Ricardo Martin-Brualla²</a></li><br>
+                    <li><a style="font-size: calc(min(3vw, 15px))" href="https://pratulsrinivasan.github.io/">Pratul P. Srinivasan¹</a></li>
+                    <li><a style="font-size: calc(min(3vw, 15px))" href="https://jonbarron.info/">Jonathan T. Barron¹</a></li>
+                    <li><a style="font-size: calc(min(3vw, 15px))"  href="https://poolio.github.io/">Ben Poole¹</a><!--don't add a linebreak here! it adds a space!--><div style="display: inline; font-family:verdana">*</div></li>
+                </ul>
+            </div>
+            <div class="col-md-12 text-center" style="font-size: calc(min(3vw, 15px))">
+		¹Google DeepMind&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;²Google Research&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<div style="display: inline; font-family:verdana; font-size: calc(min(3vw, 15px))">*</div>equal contribution
+            </div>
+        </div>
+        <div class="row text-center">
+            <span class="link-block" style="padding-top: 10px; padding-bottom: 10px">
+                <a href="https://arxiv.org/abs/2405.10314" class="external-link button is-normal is-rounded is-dark"
+                    style="width: 80px; font-size: 15px">
+                    <span class="icon">
+                        <i class="ai ai-arxiv"></i>
+                    </span>
+                    <span>arXiv</span>
+                </a>
+                <a href="index.html" class="external-link button is-normal is-rounded is-dark"
+                    style="width: 120px; font-size: 15px">
+                    <span>Project Page</span>
+                </a>
+            </span>
+        </div>
+
+
+    <div class="container" id="videoGallery" class="video-gallery">
+      <!-- Search / Filter -->
+      <div class="sticky-top" style="width: 100%">
+        <center>
+          <div class="row search">
+            <div class="col-sm-12">
+              <div class="card"> 
+                <div class="card-body"> 
+                  <h4>Search assets.</h4>
+                  <input id="search" class="search form-control form-control-lg" type="text" placeholder="e.g.: dog, cat, tree, fwd, orbit"> 
+                </div> 
+              </div>
+            </div>
+          </div>
+        </center>
+      </div>
+  
+      <!-- Thumbnails -->
+      <div id="thumbnails" class="card-columns captioned_videos list"></div>
+    </div>
+
+    <script src="./js/stopExecutionTimeout.js"></script>
+    <script src="https://polyfill.io/v3/polyfill.js?features=IntersectionObserver"></script>
+    <script src="./js/yall.js"></script>
+    <script>
+    if (document.location.search.match(/type=embed/gi)) {
+      window.parent.postMessage("resize", "*");
+    }
+
+/*
+const bucket = "https://storage.googleapis.com/gallery_videos/v0"
+
+async function listFolders() {
+    // Interacting with the google cloud storage APIS requires full on node installatiosn and such so meh, just parse the returned XML :) 
+    let xmlDoc = await fetch(bucket).then(response => response.text()).then(xmlString => {
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(xmlString, 'text/xml');
+        return xmlDoc;
+    }).catch(error => {
+        console.error('Error:', error);
+    });
+    const contentsElements = xmlDoc.getElementsByTagName('Contents');
+    let nodeArray = [].slice.call(contentsElements);
+
+    function xmlToKey(folder) {
+        let key = folder.getElementsByTagName("Key")[0].textContent;
+        let parts = key.split("/");
+        return parts[0] + "/" + parts[1];
+    }
+
+    const keys = [...new Set(nodeArray.map(f => xmlToKey(f)))];
+    return keys.filter(f => f.includes(".mp4"))
+}   
+
+    let files = listFolders();
+    console.log(files)
+	console.log("hello")*/
+  
+    const shuffleArray = array => {
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        const temp = array[i];
+        array[i] = array[j];
+        array[j] = temp;
+      }
+    }
+  
+    var videoPaths = [
+"cat3d_tags_3d_cartoon_boy_character_animation_orbit.mp4",
+"cat3d_tags_3d_cartoon_folk_singers_character_music_guitar_animation_orbit.mp4",
+"cat3d_tags_a_cafe_adorned_with_indoor_plants_greenery_orbit.mp4",
+"cat3d_tags_a_very_strange_burger_food_unusual_creative_orbit.mp4",
+"cat3d_tags_abstract_art_waves_blue_painting_ocean_orbit.mp4",
+"cat3d_tags_abstract_art_waves_painting_modern_blue_ocean_flow_orbit.mp4",
+"cat3d_tags_adorable_whimsical_fantasy_creature_animal_mythical_magical_illustration_orbit.mp4",
+"cat3d_tags_adventurer_standing_in_forest_exploration_nature_trees_hiking_woodland_outdoor_fwd.mp4",
+"cat3d_tags_adventurous_teddy_bear_explorer_travel_outdoor_orbit.mp4",
+"cat3d_tags_alien_merchant_extraterrestrial_market_fantasy_science_fiction_fwd.mp4",
+"cat3d_tags_alley_city_urban_narrow_passage_architecture_outdoor_fwd.mp4",
+"cat3d_tags_alpaca_wearing_a_suit_animal_clothing_formal_wool_orbit.mp4",
+"cat3d_tags_an_artistic_letter_a_typography_design_graphic_art_orbit.mp4",
+"cat3d_tags_angry_t_rex_dinosaur_prehistoric_creature_tyrannosaurus_fossil_extinct_orbit.mp4",
+"cat3d_tags_anime_character_in_lab_coat_scientist_cartoon_drawing_japanese_style_fwd.mp4",
+"cat3d_tags_arches_national_park_nature_rock_formations_desert_travel_outdoor_orbit.mp4",
+"cat3d_tags_astronaut_close_up_portrait_space_helmet_suit_fwd.mp4",
+"cat3d_tags_astronaut_in_colorful_cave_exploration_adventure_discovery_geology_outdoor_orbit.mp4",
+"cat3d_tags_astronaut_in_front_of_landscape_space_alien_planet_fwd.mp4",
+"cat3d_tags_astronaut_standing_in_front_of_landscape_space_outdoor_orbit.mp4",
+"cat3d_tags_baby_dragon_drinking_boba_tea_fantasy_mythical_orbit.mp4",
+"cat3d_tags_bagel_with_cream_cheese_and_salmon_breakfast_food_lox_brunch_fwd.mp4",
+"cat3d_tags_bagel_with_cream_cheese_and_salmon_breakfast_food_lox_brunch_meal_orbit.mp4",
+"cat3d_tags_banana_orange_juice_beverage_fruit_tropical_healthy_fwd.mp4",
+"cat3d_tags_basket_of_dumplings_food_asian_cuisine_steamed_delicious_fwd.mp4",
+"cat3d_tags_beached_sailboat_abandoned_ocean_coast_shore_outdoor_fwd.mp4",
+"cat3d_tags_bear_in_classroom_education_school_learning_animal_fwd.mp4",
+"cat3d_tags_bear_playing_guitar_music_instrument_entertainment_fwd.mp4",
+"cat3d_tags_bee_drinking_honey_insect_honeycomb_sweet_photography_orbit.mp4",
+"cat3d_tags_big_tree_nature_forest_woodland_trunk_branches_outdoor_fwd.mp4",
+"cat3d_tags_bonsai_tree_plant_miniature_japanese_fwd.mp4",
+"cat3d_tags_bonsai_tree_plant_miniature_japanese_orbit.mp4",
+"cat3d_tags_bowl_of_cereal_breakfast_food_grains_milk_healthy_fwd.mp4",
+"cat3d_tags_bowl_on_table_food_dining_kitchen_ceramic_fwd.mp4",
+"cat3d_tags_boy_looking_at_house_architecture_home_exterior_child_fwd.mp4",
+"cat3d_tags_boy_riding_llama_animal_south_america_andes_mountains_outdoor_fwd.mp4",
+"cat3d_tags_bubbly_hair_character_cartoon_design_colorful_fwd.mp4",
+"cat3d_tags_bunker_in_forest_military_abandoned_hidden_structure_outdoor_fwd.mp4",
+"cat3d_tags_bust_statue_in_museum_art_sculpture_history_culture_ancient_fwd.mp4",
+"cat3d_tags_bustling_city_market_people_vendors_food_products_crowded_urban_outdoor_fwd.mp4",
+"cat3d_tags_busy_city_market_people_vendors_products_crowded_urban_outdoor_fwd.mp4",
+"cat3d_tags_cactus_in_pot_plant_succulent_spines_desert_fwd.mp4",
+"cat3d_tags_cartoon_arcade_games_entertainment_retro_vintage_fun_fwd.mp4",
+"cat3d_tags_cat_and_christmas_tree_holiday_pet_decorations_winter_festive_orbit.mp4",
+"cat3d_tags_cat_and_coffee_pet_beverage_morning_relaxation_indoor_fwd.mp4",
+"cat3d_tags_cat_wearing_striped_tshirt_pet_clothing_shirt_style_orbit.mp4",
+"cat3d_tags_cat_with_striped_tshirt_pet_clothing_feline_style_fwd.mp4",
+"cat3d_tags_cats_on_a_table_outside_pets_animals_sunshine_garden_felines_outdoor_orbit.mp4",
+"cat3d_tags_cauliflower_sheep_head_vegetable_animal_food_art_fwd.mp4",
+"cat3d_tags_cauliflower_sheep_head_vegetable_animal_food_art_orbit.mp4",
+"cat3d_tags_ceramic_blue_and_white_dragon_mythical_creature_pottery_orbit.mp4",
+"cat3d_tags_ceramic_octopus_sculpture_art_marine_tentacles_orbit.mp4",
+"cat3d_tags_ceramic_rabbit_pottery_sculpture_bunny_figurine_home_decor_orbit.mp4",
+"cat3d_tags_chair_in_library_study_furniture_books_reading_knowledge_indoor_fwd.mp4",
+"cat3d_tags_cheeseburger_food_burger_fast_food_orbit.mp4",
+"cat3d_tags_cherry_blossom_tree_flower_pink_spring_nature_outdoor_fwd.mp4",
+"cat3d_tags_chilling_chihuahua_dog_relaxing_pet_orbit.mp4",
+"cat3d_tags_cinnamon_bun_food_pastry_dessert_orbit.mp4",
+"cat3d_tags_colorful_bird_nature_feathers_avian_tropical_exotic_fwd.mp4",
+"cat3d_tags_colorful_forest_nature_trees_autumn_fall_leaves_vibrant_outdoor_fwd.mp4",
+"cat3d_tags_colorful_living_room_interior_decoration_furniture_indoor_orbit.mp4",
+"cat3d_tags_corgi_salmon_sushi_dog_food_cuisine_orbit.mp4",
+"cat3d_tags_country_manor_mansion_architecture_historic_estate_luxury_outdoor_fwd.mp4",
+"cat3d_tags_cowboy_boot_western_footwear_leather_brown_orbit.mp4",
+"cat3d_tags_cozy_bedroom_interior_comfortable_bed_relaxing_sleep_indoor_fwd.mp4",
+"cat3d_tags_crab_shaped_thing_on_plate_food_seafood_presentation_dining_fwd.mp4",
+"cat3d_tags_creepy_forest_nature_trees_dark_eerie_halloween_scary_outdoor_fwd.mp4",
+"cat3d_tags_creepy_house_halloween_haunted_scary_abandoned_architecture_fwd.mp4",
+"cat3d_tags_crochet_amigurumi_boy_with_glasses_toy_doll_orbit.mp4",
+"cat3d_tags_crochet_amigurumi_motorcycle_vehicle_toy_yarn_orbit.mp4",
+"cat3d_tags_crochet_amigurumi_tractor_vehicle_toy_farm_agriculture_orbit.mp4",
+"cat3d_tags_crocodile_alligator_playing_drum_reptile_instrument_orbit.mp4",
+"cat3d_tags_croissant_food_pastry_french_bakery_fwd.mp4",
+"cat3d_tags_cute_dog_in_maid_outfit_pet_costume_orbit.mp4",
+"cat3d_tags_dachshund_dog_sausage_breed_pet_canine_fwd.mp4",
+"cat3d_tags_deer_holding_bow_animal_archery_hunting_fwd.mp4",
+"cat3d_tags_deer_holding_bow_animal_archery_hunting_orbit.mp4",
+"cat3d_tags_degas_the_dance_class_art_painting_ballet_dancers_impressionism_fwd.mp4",
+"cat3d_tags_dew_on_leaves_nature_morning_water_droplets_macro_photography_outdoor_fwd.mp4",
+"cat3d_tags_dog_coffee_this_is_fine_meme_humor_internet_culture_fwd.mp4",
+"cat3d_tags_dog_in_space_astronaut_pet_canine_humor_fwd.mp4",
+"cat3d_tags_dolphin_wearing_sunglasses_animal_ocean_sea_outdoor_fwd.mp4",
+"cat3d_tags_dolphin_wearing_sunglasses_animal_ocean_sea_outdoor_orbit.mp4",
+"cat3d_tags_einstein_bobblehead_physicist_science_toy_fwd.mp4",
+"cat3d_tags_everglades_house_florida_swamp_nature_architecture_outdoor_fwd.mp4",
+"cat3d_tags_exterior_architecture_building_design_modern_facade_fwd.mp4",
+"cat3d_tags_family_of_monsters_friendly_creatures_happy_fun_illustration_orbit.mp4",
+"cat3d_tags_fancy_bathroom_interior_luxury_modern_design_tiles_indoor_fwd.mp4",
+"cat3d_tags_fancy_couch_furniture_luxury_comfortable_living_room_indoor_fwd.mp4",
+"cat3d_tags_field_of_lavender_flowers_purple_nature_scented_outdoor_orbit.mp4",
+"cat3d_tags_fine_dining_dinner_dish_food_gourmet_elegant_presentation_restaurant_fwd.mp4",
+"cat3d_tags_fire_breathing_dragon_mythical_creature_fantasy_fire_powerful_fwd.mp4",
+"cat3d_tags_firefighter_dog_hero_rescue_dalmatian_uniform_brave_orbit.mp4",
+"cat3d_tags_frog_wearing_leather_suit_and_top_hat_toad_gentleman_stylish_orbit.mp4",
+"cat3d_tags_frozen_lighthouse_outdoor_arctic_orbit.mp4",
+"cat3d_tags_frozen_lighthouse_winter_ice_cold_snow_beacon_outdoor_fwd.mp4",
+"cat3d_tags_full_english_breakfast_food_eggs_bacon_sausage_beans_toast_fwd.mp4",
+"cat3d_tags_furry_green_gremlin_troll_monster_creature_fantasy_orbit.mp4",
+"cat3d_tags_futuristic_cyborg_suit_technology_sci_fi_orbit.mp4",
+"cat3d_tags_gallery_shopping_mall_art_retail_interior_indoor_orbit.mp4",
+"cat3d_tags_geometric_motorcycle_abstract_design_modern_colorful_shapes_vehicle_orbit.mp4",
+"cat3d_tags_gingerbread_tower_christmas_holiday_house_baking_treat_festive_orbit.mp4",
+"cat3d_tags_giraffe_octopus_eating_cake_animal_hybrid_birthday_dessert_orbit.mp4",
+"cat3d_tags_girl_looking_at_house_architecture_home_exterior_fwd.mp4",
+"cat3d_tags_grand_canyon_arizona_nature_rock_formations_vast_landscape_outdoor_fwd.mp4",
+"cat3d_tags_great_hall_castle_medieval_architecture_interior_grand_fwd.mp4",
+"cat3d_tags_green_chair_furniture_seat_fwd.mp4",
+"cat3d_tags_green_chair_furniture_seat_orbit.mp4",
+"cat3d_tags_green_forest_nature_trees_woodland_lush_outdoor_fwd.mp4",
+"cat3d_tags_green_ice_cream_food_dessert_orbit.mp4",
+"cat3d_tags_grocery_shopping_teddy_bears_toys_food_shopping_cute_fwd.mp4",
+"cat3d_tags_gummy_bear_playing_saxophone_candy_music_instrument_band_entertainment_orbit.mp4",
+"cat3d_tags_happy_birthday_baby_panda_celebration_cake_cute_orbit.mp4",
+"cat3d_tags_hatching_dragon_egg_fantasy_mythical_creature_birth_magic_fwd.mp4",
+"cat3d_tags_heart_made_of_glass_love_fragile_symbol_art_fwd.mp4",
+"cat3d_tags_hedgehog_animal_mammal_spines_cute_fwd.mp4",
+"cat3d_tags_hole_in_wall_damage_texture_abstract_fwd.mp4",
+"cat3d_tags_horned_goat_animal_farm_orbit.mp4",
+"cat3d_tags_horse_animal_mammal_equine_farm_riding_fwd.mp4",
+"cat3d_tags_horse_painting_art_equine_animal_portrait_fwd.mp4",
+"cat3d_tags_house_near_the_water_coast_beach_lake_outdoor_orbit.mp4",
+"cat3d_tags_ice_cream_frosting_cupcake_in_white_room_dessert_baking_minimalism_orbit.mp4",
+"cat3d_tags_ice_cream_sundae_parfait_dessert_sweet_treat_layers_delicious_fwd.mp4",
+"cat3d_tags_ice_cream_white_cupcake_dessert_sweet_treat_frosting_minimalistic_fwd.mp4",
+"cat3d_tags_interior_bonfire_cathedral_fire_architecture_gothic_medieval_indoor_fwd.mp4",
+"cat3d_tags_interior_farmhouse_rustic_home_decor_kitchen_indoor_fwd.mp4",
+"cat3d_tags_interior_gallery_art_exhibition_indoor_fwd.mp4",
+"cat3d_tags_interior_living_room_mirror_reflection_home_decor_indoor_fwd.mp4",
+"cat3d_tags_interior_lounge_chairs_furniture_modern_comfortable_relaxation_indoor_fwd.mp4",
+"cat3d_tags_interior_lounge_chairs_furniture_stylish_decor_indoor_fwd.mp4",
+"cat3d_tags_kangaroo_animal_australia_wildlife_orbit.mp4",
+"cat3d_tags_kangaroo_costume_animal_halloween_outfit_orbit.mp4",
+"cat3d_tags_kangaroo_playing_basketball_animal_sports_humor_australia_fwd.mp4",
+"cat3d_tags_kangaroo_with_baby_marsupial_joey_wildlife_australia_fwd.mp4",
+"cat3d_tags_kitchen_with_big_cauldron_cooking_medieval_fantasy_pot_fwd.mp4",
+"cat3d_tags_knit_crochet_amigurumi_bee_insect_toy_yellow_black_orbit.mp4",
+"cat3d_tags_lamb_by_window_animal_farm_rural_looking_out_fwd.mp4",
+"cat3d_tags_lasagna_food_italian_pasta_cheese_baked_fwd.mp4",
+"cat3d_tags_leaning_tower_of_pisa_italy_landmark_architecture_monument_outdoor_orbit.mp4",
+"cat3d_tags_lemon_guy_in_city_character_fruit_anthropomorphic_urban_fwd.mp4",
+"cat3d_tags_lemon_wearing_glasses_and_sneakers_fruit_citrus_character_city_outdoor_orbit.mp4",
+"cat3d_tags_lemon_with_glasses_fruit_citrus_character_fwd.mp4",
+"cat3d_tags_library_candle_books_knowledge_light_atmosphere_indoor_fwd.mp4",
+"cat3d_tags_lights_under_bridge_architecture_outdoor_night_fwd.mp4",
+"cat3d_tags_little_creature_in_flower_fantasy_nature_cute_insect_magical_fwd.mp4",
+"cat3d_tags_loaf_of_bread_food_bakery_fresh_baked_fwd.mp4",
+"cat3d_tags_lobster_food_seafood_crustacean_marine_fwd.mp4",
+"cat3d_tags_low_poly_crab_crustacean_3d_model_digital_art_fwd.mp4",
+"cat3d_tags_low_poly_dog_3d_model_digital_art_orbit.mp4",
+"cat3d_tags_low_poly_palm_tree_tropical_3d_model_digital_design_island_fwd.mp4",
+"cat3d_tags_low_poly_palm_tree_tropical_3d_model_digital_island_orbit.mp4",
+"cat3d_tags_lunch_outside_food_picnic_dining_outdoor_fwd.mp4",
+"cat3d_tags_lush_village_nature_green_houses_idyllic_rural_outdoor_fwd.mp4",
+"cat3d_tags_magical_flower_fantasy_nature_bloom_fwd.mp4",
+"cat3d_tags_magical_flower_fantasy_nature_bloom_orbit.mp4",
+"cat3d_tags_magician_turtle_with_tophat_animal_orbit.mp4",
+"cat3d_tags_man_above_the_clouds_sky_flying_dreamlike_surreal_freedom_fwd.mp4",
+"cat3d_tags_man_holding_shell_underwater_diving_ocean_sea_exploration_marine_outdoor_fwd.mp4",
+"cat3d_tags_mech_robot_technology_futuristic_machine_fwd.mp4",
+"cat3d_tags_mech_robot_technology_futuristic_machine_orbit.mp4",
+"cat3d_tags_metallic_ducks_birds_sculpture_art_shiny_reflective_fwd.mp4",
+"cat3d_tags_metallic_heart_love_symbol_decoration_orbit.mp4",
+"cat3d_tags_mochi_cat_cute_animal_treat_indoor_1_fwd.mp4",
+"cat3d_tags_mochi_cat_cute_animal_treat_indoor_2_fwd.mp4",
+"cat3d_tags_mochi_cat_cute_animal_treat_indoor_3_fwd.mp4",
+"cat3d_tags_mochi_cat_cute_animal_treat_indoor_4_fwd.mp4",
+"cat3d_tags_mochi_cat_cute_animal_treat_indoor_5_fwd.mp4",
+"cat3d_tags_mochi_cat_cute_animal_treat_indoor_6_fwd.mp4",
+"cat3d_tags_mochi_cat_with_cone_japanese_dessert_cute_animal_treat_fwd.mp4",
+"cat3d_tags_mojito_by_the_beach_drink_cocktail_outdoor_orbit.mp4",
+"cat3d_tags_monet_hay_stack_impressionism_art_painting_field_landscape_rural_outdoor_orbit.mp4",
+"cat3d_tags_mosque_architecture_building_outdoor_fwd.mp4",
+"cat3d_tags_mouse_rodent_animal_fwd.mp4",
+"cat3d_tags_mouse_rodent_animal_orbit.mp4",
+"cat3d_tags_mr_lemon_man_character_fruit_anthropomorphic_orbit.mp4",
+"cat3d_tags_mushroom_in_forest_fungi_nature_woodland_autumn_photography_wild_outdoor_orbit.mp4",
+"cat3d_tags_mysterious_person_in_alley_city_urban_shadow_unknown_figure_fwd.mp4",
+"cat3d_tags_nan_orbit.mp4",
+"cat3d_tags_night_time_mountain_shrine_sacred_place_spiritual_peaceful_serene_fwd.mp4",
+"cat3d_tags_noodle_soup_with_flowers_food_asian_cuisine_broth_garnish_edible_flowers_fwd.mp4",
+"cat3d_tags_old_timey_racecar_2_car_vintage_racing_orbit.mp4",
+"cat3d_tags_old_timey_racecar_car_vintage_racing_orbit.mp4",
+"cat3d_tags_orange_road_bike_bicycle_cycling_sports_fitness_transportation_orbit.mp4",
+"cat3d_tags_origami_hippo_animal_paper_folding_art_craft_fwd.mp4",
+"cat3d_tags_otter_wearing_sunglasses_animal_orbit.mp4",
+"cat3d_tags_overgrown_car_in_forest_clearing_abandoned_vintage_forgotten_decay_outdoor_fwd.mp4",
+"cat3d_tags_painting_of_car_art_vehicle_automotive_fwd.mp4",
+"cat3d_tags_painting_of_landscape_art_nature_trees_mountains_river_outdoor_fwd.mp4",
+"cat3d_tags_pair_of_gummy_bears_candy_food_orbit.mp4",
+"cat3d_tags_pair_of_teddy_bears_toys_stuffed_animals_cute_fwd.mp4",
+"cat3d_tags_panda_bear_asia_wildlife_orbit.mp4",
+"cat3d_tags_panda_in_boat_animal_water_river_lake_outdoor_fwd.mp4",
+"cat3d_tags_panda_in_tiny_car_animal_vehicle_humor_orbit.mp4",
+"cat3d_tags_pasta_with_red_tomato_sauce_food_italian_dinner_lunch_fwd.mp4",
+"cat3d_tags_pasta_with_red_tomato_sauce_food_noodles_orbit.mp4",
+"cat3d_tags_penguin_at_the_beach_animal_bird_antarctic_ocean_unusual_humor_fwd.mp4",
+"cat3d_tags_pharaoh_texting_egypt_ancient_history_humor_orbit.mp4",
+"cat3d_tags_pigeon_bird_city_urban_wildlife_fwd.mp4",
+"cat3d_tags_pile_of_fruit_healthy_fresh_produce_vitamins_colorful_nutrition_orbit.mp4",
+"cat3d_tags_pineapple_on_table_fruit_food_fwd.mp4",
+"cat3d_tags_pineapple_on_table_fruit_food_orbit.mp4",
+"cat3d_tags_pink_flower_nature_garden_bloom_petal_fwd.mp4",
+"cat3d_tags_pink_room_of_flowers_floral_interior_decoration_indoor_orbit.mp4",
+"cat3d_tags_pixellated_man_in_vest_retro_game_character_design_digital_fwd.mp4",
+"cat3d_tags_pizza_food_italian_cheese_tomato_sauce_fwd.mp4",
+"cat3d_tags_porcelain_lion_statue_sculpture_ceramic_decoration_orbit.mp4",
+"cat3d_tags_prairie_grassland_nature_plains_vast_open_outdoor_fwd.mp4",
+"cat3d_tags_pug_dressed_as_bumblebee_dog_costume_halloween_bee_yellow_orbit.mp4",
+"cat3d_tags_purple_haired_dragon_fantasy_creature_mythical_scales_wings_fwd.mp4",
+"cat3d_tags_rabbit_in_suit_animal_clothing_formal_fwd.mp4",
+"cat3d_tags_rabbit_in_suit_animal_clothing_formal_orbit.mp4",
+"cat3d_tags_rabbit_mowing_the_lawn_garden_lawnmower_outdoor_orbit.mp4",
+"cat3d_tags_rabbit_working_on_laptop_technology_animal_orbit.mp4",
+"cat3d_tags_ramen_food_japanese_cuisine_noodles_broth_delicious_fwd.mp4",
+"cat3d_tags_recliner_chair_furniture_comfort_home_living_lounge_indoor_orbit.mp4",
+"cat3d_tags_red_bird_nature_wildlife_feathers_avian_branch_tree_outdoor_orbit.mp4",
+"cat3d_tags_red_sports_car_vehicle_fast_automobile_luxury_fwd.mp4",
+"cat3d_tags_red_stand_mixer_kitchen_appliance_baking_retro_vintage_preparation_indoor_fwd.mp4",
+"cat3d_tags_red_stand_mixer_kitchen_appliance_baking_retro_vintage_preparation_indoor_orbit.mp4",
+"cat3d_tags_regal_dragon_mythical_creature_fantasy_powerful_majestic_fwd.mp4",
+"cat3d_tags_rhino_animal_wildlife_africa_endangered_fwd.mp4",
+"cat3d_tags_rhino_animal_wildlife_africa_horn_endangered_fwd.mp4",
+"cat3d_tags_robot_building_stuff_construction_technology_futuristic_engineering_industry_orbit.mp4",
+"cat3d_tags_robot_doing_homework_technology_education_humor_artificial_intelligence_fwd.mp4",
+"cat3d_tags_robot_doing_taxes_accounting_technology_humor_orbit.mp4",
+"cat3d_tags_robot_playing_cello_music_instrument_classical_technology_artificial_intelligence_fwd.mp4",
+"cat3d_tags_robot_sitting_by_waterfront_technology_city_outdoor_orbit.mp4",
+"cat3d_tags_robot_wearing_skis_in_a_supermarket_grocery_indoor_orbit.mp4",
+"cat3d_tags_robot_working_in_factory_technology_manufacturing_industry_automation_fwd.mp4",
+"cat3d_tags_rock_arch_over_ocean_nature_coast_geology_outdoor_orbit.mp4",
+"cat3d_tags_rodent_warrior_fantasy_armor_sword_shield_character_fwd.mp4",
+"cat3d_tags_rodent_with_shield_and_sword_warrior_fantasy_armor_orbit.mp4",
+"cat3d_tags_sasquatch_bigfoot_creature_mythical_forest_outdoor_fwd.mp4",
+"cat3d_tags_sasquatch_bigfoot_creature_mythical_forest_outdoor_orbit.mp4",
+"cat3d_tags_scary_road_dark_night_outdoor_fwd.mp4",
+"cat3d_tags_shiny_silver_robot_cat_metallic_feline_orbit.mp4",
+"cat3d_tags_silver_robot_cat_feline_metallic_orbit.mp4",
+"cat3d_tags_single_croissant_food_pastry_french_bakery_fwd.mp4",
+"cat3d_tags_single_palm_tree_on_beach_tropical_island_outdoor_orbit.mp4",
+"cat3d_tags_skeleton_bones_anatomy_halloween_spooky_fwd.mp4",
+"cat3d_tags_skeleton_cartoon_character_halloween_spooky_funny_bone_fwd.mp4",
+"cat3d_tags_skeleton_smoking_halloween_spooky_cigarette_humor_fwd.mp4",
+"cat3d_tags_sleeping_cat_pet_feline_resting_peacefully_fwd.mp4",
+"cat3d_tags_snail_animal_mollusk_shell_slow_garden_fwd.mp4",
+"cat3d_tags_spiky_hair_walking_character_cartoon_animation_design_punk_fwd.mp4",
+"cat3d_tags_squirrel_animal_rodent_nature_tree_wildlife_outdoor_fwd.mp4",
+"cat3d_tags_stack_of_chocolate_chip_cookies_dessert_baked_sweet_delicious_orbit.mp4",
+"cat3d_tags_stack_of_double_chocolate_chip_cookies_dessert_baked_sweet_delicious_orbit.mp4",
+"cat3d_tags_stack_of_double_chocolate_cookies_dessert_baked_sweet_delicious_fwd.mp4",
+"cat3d_tags_stack_of_pancakes_breakfast_food_syrup_butter_delicious_meal_fwd.mp4",
+"cat3d_tags_stack_of_pancakes_breakfast_syrup_butter_delicious_meal_orbit.mp4",
+"cat3d_tags_stack_of_rocks_in_river_nature_balance_stones_water_zen_meditation_outdoor_fwd.mp4",
+"cat3d_tags_stacked_pile_of_rocks_in_river_nature_balance_stones_water_zen_outdoor_orbit.mp4",
+"cat3d_tags_stationary_bike_fitness_exercise_gym_workout_cardio_health_training_indoor_orbit.mp4",
+"cat3d_tags_statue_of_liberty_new_york_city_landmark_usa_freedom_monument_travel_outdoor_orbit.mp4",
+"cat3d_tags_stone_cottage_in_field_house_rural_architecture_outdoor_fwd.mp4",
+"cat3d_tags_stone_cottage_in_field_house_rural_outdoor_orbit.mp4",
+"cat3d_tags_strange_cake_unusual_dessert_food_orbit.mp4",
+"cat3d_tags_strawberry_fruit_red_sweet_juicy_healthy_fwd.mp4",
+"cat3d_tags_swirly_toast_food_breakfast_bread_pattern_design_fwd.mp4",
+"cat3d_tags_teddy_bear_in_city_toy_urban_adventure_fwd.mp4",
+"cat3d_tags_teddy_bear_in_the_city_toy_urban_adventure_orbit.mp4",
+"cat3d_tags_teddy_bear_in_the_snow_winter_holiday_cold_orbit.mp4",
+"cat3d_tags_teddy_bear_with_helmet_and_cape_on_motorcycle_toy_rider_hero_stuffed_outdoor_orbit.mp4",
+"cat3d_tags_teddy_bears_holding_groceries_shopping_toys_cute_orbit.mp4",
+"cat3d_tags_toast_plushie_food_bread_cute_soft_toy_fwd.mp4",
+"cat3d_tags_tomatoes_in_pot_garden_vegetables_plants_growing_food_fwd.mp4",
+"cat3d_tags_toy_tractor_vehicle_farm_agriculture_play_fwd.mp4",
+"cat3d_tags_tractor_in_field_farm_agriculture_vehicle_outdoor_orbit.mp4",
+"cat3d_tags_tropical_mountain_island_nature_ocean_exotic_orbit.mp4",
+"cat3d_tags_tulips_flowers_spring_garden_floral_outdoor_fwd.mp4",
+"cat3d_tags_tulips_flowers_spring_garden_floral_outdoor_orbit.mp4",
+"cat3d_tags_turquoise_scooter_transportation_vehicle_retro_vintage_colorful_urban_city_orbit.mp4",
+"cat3d_tags_two_cacti_in_pots_plants_cactus_succulents_orbit.mp4",
+"cat3d_tags_underwater_man_diving_ocean_exploration_sea_outdoor_orbit.mp4",
+"cat3d_tags_van_gogh_bedroom_art_painting_interior_famous_artist_fwd.mp4",
+"cat3d_tags_vegetable_robot_technology_produce_food_art_bionic_orbit.mp4",
+"cat3d_tags_velvet_bag_of_marbles_luxury_texture_soft_games_tactile_fwd.mp4",
+"cat3d_tags_velvet_bag_of_marbles_luxury_texture_toys_games_tactile_orbit.mp4",
+"cat3d_tags_video_game_box_console_gaming_entertainment_orbit.mp4",
+"cat3d_tags_video_game_world_fantasy_digital_environment_adventure_fwd.mp4",
+"cat3d_tags_walrus_smoking_pipe_sea_creature_tusk_ocean_orbit.mp4",
+"cat3d_tags_waterfall_nature_water_cascade_river_outdoor_fwd.mp4",
+"cat3d_tags_wine_and_grapes_beverage_fruit_vineyard_outdoor_fwd.mp4",
+"cat3d_tags_wine_and_grapes_beverage_fruit_vineyard_outdoor_orbit.mp4",
+"cat3d_tags_wine_on_chess_board_beverage_game_strategy_relaxation_fwd.mp4",
+"cat3d_tags_wolf_mural_art_painting_animal_wildlife_fwd.mp4",
+"cat3d_tags_woman_at_beach_ocean_sand_sun_relaxation_outdoor_fwd.mp4",
+"cat3d_tags_woman_with_plants_watching_tv_home_interior_relaxation_indoor_fwd.mp4",
+"cat3d_tags_wooden_dog_sculpture_art_fwd.mp4",
+"cat3d_tags_wooden_dog_sculpture_art_orbit.mp4",
+"cat3d_tags_wooden_library_books_shelves_knowledge_interior_indoor_fwd.mp4",
+"cat3d_tags_wooden_pawn_game_chess_piece_orbit.mp4",
+"cat3d_tags_world_cake_dessert_globe_earth_countries_fwd.mp4",
+"cat3d_tags_yellow_building_architecture_urban_city_facade_fwd.mp4",
+"cat3d_tags_yellow_building_architecture_urban_city_fwd.mp4",
+"cat3d_tags_yellow_maple_leaf_autumn_fall_nature_outdoor_orbit.mp4",
+    ];
+  
+    const omitPhrases = [
+      'cat3d_tags',
+    ];
+
+var intervalId = window.setInterval(function(){
+  document.querySelectorAll('video').forEach(vid => vid.play());
+}, 1000);
+  
+    shuffleArray(videoPaths);
+  
+    // document.addEventListener("DOMContentLoaded", function() {
+      var thumbnails = document.getElementById("thumbnails");
+      var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+  
+  
+      for (var i = 0; i < videoPaths.length; i++) {
+        var outer = document.createElement("DIV");
+        outer.classList = "thumbnail outer card";
+        var inner = document.createElement("DIV");
+	inner.style.padding = "5px";
+        inner.classList = "inner card-body";
+  
+        let videoPath = videoPaths[i];
+        let caption = videoPath.replace('.mp4', "").replace("cat3d_tags", " ").replaceAll("_", " ");
+
+        // let captionShort = caption;
+        // for (let i = 0; i < omitPhrases.length; i++) {
+        //   captionShort = captionShort.replace(omitPhrases[i], '[...]');
+        // }
+        let captionShort = ""
+  
+        var componentVideo = document.createElement("VIDEO");
+        componentVideo.loop = true;
+        componentVideo.playsinline = true;
+        // componentVideo.preload = "metadata";
+        componentVideo.muted = true;
+        //componentVideo.width = "333";
+	componentVideo.style.width = "100%"
+        componentVideo.autoplay = true;
+        if (isIOS) {
+          // Autoplay doesn't seem to work.
+          componentVideo.classList = "video";
+          componentVideo.src = "https://storage.googleapis.com/gallery_videos/v1/" + videoPath;
+          componentVideo.controls = false;
+        } else {
+          componentVideo.controls = false;
+          componentVideo.classList = "video lazy";
+          //componentVideo.onmouseout = componentVideo.play;
+          //componentVideo.onmouseover = componentVideo.pause;
+          componentVideo.onmousemove= componentVideo.play;
+          componentVideo.onmouseout = componentVideo.play;
+          componentVideo.onkeyup = componentVideo.play;
+          componentVideo.onmouseover = componentVideo.play;
+          componentSource = document.createElement("SOURCE")
+          componentSource.type = "video/mp4"
+          componentSource.setAttribute('data-src',
+            "https://storage.googleapis.com/gallery_videos/v1/" + videoPath);
+          componentVideo.appendChild(componentSource);
+        }
+        inner.appendChild(componentVideo);
+  
+        var fullCaption = document.createElement("span");
+        fullCaption.classList = "name invisible";
+        fullCaption.style.display = "none";
+
+        fullCaption.style.fontSize = "3px";
+        fullCaption.appendChild(document.createTextNode(caption))
+        inner.appendChild(fullCaption);
+  
+        var componentCaption = document.createElement("h6");
+        componentCaption.classList = "caption";
+        componentCaption.title = caption;
+        componentCaption.appendChild(document.createTextNode(captionShort));
+        //inner.appendChild(componentCaption);
+  
+        outer.appendChild(inner);
+        thumbnails.appendChild(outer);
+      }
+  
+      if (!isIOS) {
+        yall({
+          observeChanges: false
+        });
+      }
+    // }
+    </script>
+  
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/jquery/2.0.3/jquery.min.js'></script>
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/list.js/1.2.0/list.min.js'></script>
+    <script id="rendered-js" >
+  $(function () {
+  
+    // Search
+    var options = {
+      valueNames: ['name', 'category'] };
+  
+    var videoList = new List('videoGallery', options);
+  
+    function debounced(delay, fn) {
+      // https://jsfiddle.net/foxbunny/rL68o4ef/?utm_source=website&utm_medium=embed&utm_campaign=rL68o4ef.
+      let timerId;
+      return function (...args) {
+        if (timerId) {
+          clearTimeout(timerId);
+        }
+        timerId = setTimeout(() => {
+          fn(...args);
+          timerId = null;
+        }, delay);
+      }
+    }
+  
+    $("#search").change(debounced(1000, function () {
+      // smooth scroll to thumbnails
+      $('html, body').animate({
+        scrollTop: $("#thumbnails").offset().top - 60 },
+      1000);
+    }));
+  
+    // Filter
+    $('#filter').change(function () {
+      var selection = this.value;
+      if (selection) {
+        videoList.filter(function (item) {
+          return item.values().category == selection;
+        });
+      } else {
+        videoList.filter();
+      }
+    });
+  });
+  
+  //Get URL query string
+  function getQueryVariable(variable) {
+    var query = window.location.search.substring(1);
+    var vars = query.split("&");
+    for (var i = 0; i < vars.length; i++) {if (window.CP.shouldStopExecution(0)) break;
+      var pair = vars[i].split("=");
+      if (pair[0] == variable) {return pair[1];}
+    }window.CP.exitedLoop(0);
+    return false;
+  }
+  // Get URL query string variables
+  var id = getQueryVariable("id");
+  var title = getQueryVariable("title");
+  
+  </script>
+
+
+</body>
+
+</html>

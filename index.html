@@ -1,0 +1,1198 @@
+<!DOCTYPE html>
+<html>
+
+<head lang="en">
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+
+    <title>Cross-Instance Gaussian Splatting Registration via Geometry-Aware Feature-Guided Alignment</title>
+
+    <meta name="description" content="">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <meta property="og:image" content="https://cat3d.github.io/img/rep_img.jpeg">
+    <meta property="og:image:type" content="image/png">
+    <meta property="og:image:width" content="1711">
+    <meta property="og:image:height" content="576">
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://cat3d.github.io/" />
+    <meta property="og:title" content="CAT3D: Create Anything in 3D with Multi-View Diffusion Models" />
+    <meta property="og:description"
+        content="Advances in 3D reconstruction have enabled high-quality 3D capture, but require a user to collect hundreds to thousands of images to create a 3D scene. We present CAT3D, a method for creating anything in 3D by simulating this real-world capture process with a multi-view diffusion model. Given any number of input images and a set of target novel viewpoints, our model generates highly consistent novel views of a scene. These generated views can be used as input to robust 3D reconstruction techniques to produce 3D representations that can be rendered from any viewpoint in real-time. CAT3D can create entire 3D scenes in as little as one minute, and outperforms existing methods for single image and few-view 3D scene creation." />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="CAT3D: Create Anything in 3D with Multi-View Diffusion Models" />
+    <meta name="twitter:description"
+        content="Advances in 3D reconstruction have enabled high-quality 3D capture, but require a user to collect hundreds to thousands of images to create a 3D scene. We present CAT3D, a method for creating anything in 3D by simulating this real-world capture process with a multi-view diffusion model. Given any number of input images and a set of target novel viewpoints, our model generates highly consistent novel views of a scene. These generated views can be used as input to robust 3D reconstruction techniques to produce 3D representations that can be rendered from any viewpoint in real-time. CAT3D can create entire 3D scenes in as little as one minute, and outperforms existing methods for single image and few-view 3D scene creation." />
+    <meta name="twitter:image" content="https://cat3d.github.io/img/rep_img.jpeg" />
+
+    <link rel="icon" href="data:,">
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.4.0/css/font-awesome.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.8.0/codemirror.min.css">
+    <link rel="stylesheet" href="css/app.css">
+    <link rel="stylesheet" href="css/fontawesome.all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css">
+
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-8ZERS5BVPS"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag() { dataLayer.push(arguments); }
+        gtag('js', new Date());
+        gtag('config', 'G-8ZERS5BVPS');
+    </script>   
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.8.0/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/1.5.3/clipboard.min.js"></script>
+    <script type="text/javascript" async
+        src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/MathJax.js?config=TeX-MML-AM_CHTML">
+        </script>
+    <script defer src="js/fontawesome.all.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.5.0/Chart.min.js"></script>
+
+    <script src="js/app.js"></script>
+    <script src="js/synced_video_selector.js"></script>
+
+    <script type="module">
+        import { createSplatView, setSplatScene } from "./js/splats.js"
+        const view = createSplatView("splat-picker");
+
+        const scenes = {
+            scene1: "demo/car_category/car_orange.ply",
+            scene2: "demo/car_category/car_red.ply",
+            scene3: "demo/car_category/purple_car.ply",
+            scene4: "demo/car_category/synthetic_police.ply",
+        };
+        let currentScene = "scene1";
+        let currentMode = "rgb";
+
+        async function loadCurrent() {
+            await setSplatScene(scenes[currentScene], view, /*local=*/true, /*mode=*/currentMode);
+        }
+        loadCurrent();
+
+        document.getElementById("splat-mode-toggle").addEventListener("click", async function() {
+            if (view.loading) return;
+            currentMode = currentMode === "rgb" ? "features" : "rgb";
+            this.textContent = currentMode === "rgb" ? "Show Features" : "Show RGB";
+            await loadCurrent();
+        });
+
+        document.querySelectorAll("#splat-scene-selector .scene-btn").forEach(btn => {
+            btn.addEventListener("click", async function() {
+                if (view.loading) return;
+                const scene = this.getAttribute("data-scene");
+                if (scene === currentScene) return;
+                currentScene = scene;
+                document.querySelectorAll("#splat-scene-selector .scene-btn").forEach(b => b.classList.remove("active"));
+                this.classList.add("active");
+                await loadCurrent();
+            });
+        });
+    </script>
+    <script type="module">
+        import { RegistrationViewer, customTransform } from "./js/registration.js";
+
+        // Module scripts are deferred, so DOM is ready when this runs
+        (async () => {
+            const viewer = new RegistrationViewer("reg-viewer");
+
+            const scenes = {
+                scene1: "demo/car_category/car_orange.ply",
+                scene2: "demo/car_category/car_red.ply",
+                scene3: "demo/car_category/purple_car.ply",
+                scene4: "demo/car_category/synthetic_police.ply",
+            };
+
+            // Load all models
+            for (const [key, url] of Object.entries(scenes)) {
+                await viewer.loadModel(key, url);
+            }
+
+            let currentMode = "rgb";
+            let sourceKey = "scene1";
+            let targetKey = "scene2";
+            viewer.sourceKey = sourceKey;
+            viewer.targetKey = targetKey;
+
+            // Initial render: both models combined, no transform
+            await viewer.renderCombined("rgb");
+            viewer.setStatus("Ready. Select source/target and apply transforms.");
+
+            // Source/target selectors
+            document.querySelectorAll("#reg-source-selector .reg-scene-btn").forEach(btn => {
+                btn.addEventListener("click", async function() {
+                    if (viewer.loading) return;
+                    sourceKey = this.getAttribute("data-scene");
+                    viewer.sourceKey = sourceKey;
+                    document.querySelectorAll("#reg-source-selector .reg-scene-btn").forEach(b => b.classList.remove("active"));
+                    this.classList.add("active");
+                    viewer.appliedTransform = null;
+                    viewer.icpResult = null;
+                    viewer._invalidateSceneCache();
+                    await viewer.renderCombined(currentMode);
+                    updateIterUI();
+                });
+            });
+
+            document.querySelectorAll("#reg-target-selector .reg-scene-btn").forEach(btn => {
+                btn.addEventListener("click", async function() {
+                    if (viewer.loading) return;
+                    targetKey = this.getAttribute("data-scene");
+                    viewer.targetKey = targetKey;
+                    document.querySelectorAll("#reg-target-selector .reg-scene-btn").forEach(b => b.classList.remove("active"));
+                    this.classList.add("active");
+                    viewer.appliedTransform = null;
+                    viewer.icpResult = null;
+                    viewer._invalidateSceneCache();
+                    await viewer.renderCombined(currentMode);
+                    updateIterUI();
+                });
+            });
+
+            // Helper to set a slider value and update its label
+            function setSlider(id, value) {
+                const slider = document.getElementById(id);
+                slider.value = value;
+                slider.dispatchEvent(new Event("input"));
+            }
+
+            // Reset all inputs to defaults on page load (browsers may cache old values)
+            for (const id of ["reg-rot-x", "reg-rot-y", "reg-rot-z", "reg-tx", "reg-ty", "reg-tz"]) {
+                setSlider(id, 0);
+            }
+            setSlider("reg-scale", 0);
+            document.getElementById("reg-max-iter").value = 8;
+            document.getElementById("reg-n-samples").value = 5000;
+            document.getElementById("reg-sem-thresh").value = 0.1;
+
+            // Random transform — just populates sliders, does NOT apply
+            document.getElementById("reg-random-transform").addEventListener("click", () => {
+                // Uniform random rotation across full slider range
+                const randRot = () => Math.round((Math.random() * 360 - 180) / 5) * 5;
+                setSlider("reg-rot-x", randRot());
+                setSlider("reg-rot-y", randRot());
+                setSlider("reg-rot-z", randRot());
+
+                // Log-scale slider: uniform in [-0.7, 0.7] (~0.2x to ~5x)
+                const logScale = Math.round((Math.random() * 1.4 - 0.7) * 20) / 20;
+                setSlider("reg-scale", logScale);
+
+                // Uniform translation across full slider range
+                const randT = () => Math.round((Math.random() * 10 - 5) * 10) / 10;
+                setSlider("reg-tx", randT());
+                setSlider("reg-ty", randT());
+                setSlider("reg-tz", Math.max(-5, Math.min(5, randT())));
+
+                viewer.setStatus("Random values set — click Apply Transformation to apply.");
+            });
+
+            // Custom transform
+            document.getElementById("reg-apply-custom-transform").addEventListener("click", async () => {
+                if (viewer.loading) return;
+                const rx = parseFloat(document.getElementById("reg-rot-x").value) || 0;
+                const ry = parseFloat(document.getElementById("reg-rot-y").value) || 0;
+                const rz = parseFloat(document.getElementById("reg-rot-z").value) || 0;
+                const s = Math.pow(10, parseFloat(document.getElementById("reg-scale").value) || 0);
+                const tx = parseFloat(document.getElementById("reg-tx").value) || 0;
+                const ty = parseFloat(document.getElementById("reg-ty").value) || 0;
+                const tz = parseFloat(document.getElementById("reg-tz").value) || 0;
+                const tf = customTransform(rx, ry, rz, s, tx, ty, tz, viewer.getSourceCentroid());
+                const applied = viewer.applyGivenTransform(tf);
+                if (!applied) return;
+                viewer.setStatus(`Custom transform: rot=(${rx}, ${ry}, ${rz})°, scale=${s.toFixed(2)}, t=(${tx}, ${ty}, ${tz})`);
+                await viewer.renderCombined(currentMode, tf.R, tf.t, tf.scale);
+                updateIterUI();
+            });
+
+            // Slider value display updates
+            for (const id of ["reg-rot-x", "reg-rot-y", "reg-rot-z"]) {
+                const slider = document.getElementById(id);
+                const label = document.getElementById(id + "-val");
+                slider.addEventListener("input", () => { label.textContent = slider.value + "°"; });
+            }
+            {
+                const slider = document.getElementById("reg-scale");
+                const label = document.getElementById("reg-scale-val");
+                slider.addEventListener("input", () => { label.textContent = Math.pow(10, parseFloat(slider.value)).toFixed(2); });
+            }
+            for (const id of ["reg-tx", "reg-ty", "reg-tz"]) {
+                const slider = document.getElementById(id);
+                const label = document.getElementById(id + "-val");
+                slider.addEventListener("input", () => { label.textContent = slider.value; });
+            }
+
+            // Run Registration
+            const maxIterInput = document.getElementById("reg-max-iter");
+            const nSamplesInput = document.getElementById("reg-n-samples");
+            const semThreshInput = document.getElementById("reg-sem-thresh");
+
+            document.getElementById("reg-run-icp").addEventListener("click", async () => {
+                if (viewer.loading) return;
+                const maxIter = parseInt(maxIterInput.value) || 10;
+                const nSamples = parseInt(nSamplesInput.value) || 5000;
+                const semanticThresh = parseFloat(semThreshInput.value) || 0.1;
+
+                await viewer.runRegistration({ maxIter, nSamples, semanticThresh,
+                    onProgress: (iter, total, numCorr, converged) => {
+                        viewer.setStatus(`Iteration ${iter}/${total}, correspondences: ${numCorr}${converged ? " (converged)" : ""}`);
+                    }
+                });
+
+                // Show final iteration
+                const numIters = viewer.icpResult.iterations.length;
+                viewer.currentIteration = numIters - 1;
+                await viewer.showIteration(numIters - 1, currentMode);
+                updateIterUI();
+            });
+
+            // Iteration stepper
+            const iterSlider = document.getElementById("reg-iter-slider");
+            const iterLabel = document.getElementById("reg-iter-label");
+
+            iterSlider.addEventListener("input", async () => {
+                if (viewer.loading) return;
+                const idx = parseInt(iterSlider.value);
+                viewer.currentIteration = idx;
+                iterLabel.textContent = idx === 0 ? "Before registration (centroid aligned)" : `Iteration ${idx}`;
+                await viewer.showIteration(idx, currentMode);
+            });
+
+            function updateIterUI() {
+                if (viewer.icpResult) {
+                    const n = viewer.icpResult.iterations.length;
+                    iterSlider.max = n - 1;
+                    iterSlider.value = viewer.currentIteration;
+                    iterSlider.disabled = false;
+                    iterLabel.textContent = viewer.currentIteration === 0 ? "Before registration (centroid aligned)" : `Iteration ${viewer.currentIteration}`;
+                } else {
+                    iterSlider.max = 0;
+                    iterSlider.value = 0;
+                    iterSlider.disabled = true;
+                    iterLabel.textContent = "Run solver first";
+                }
+            }
+
+            // Mode toggle (RGB / Features)
+            document.getElementById("reg-mode-toggle").addEventListener("click", async function() {
+                if (viewer.loading) return;
+                currentMode = currentMode === "rgb" ? "features" : "rgb";
+                this.textContent = currentMode === "rgb" ? "Show Features" : "Show RGB";
+
+                if (viewer.icpResult && viewer.currentIteration >= 0) {
+                    await viewer.showIteration(viewer.currentIteration, currentMode);
+                } else if (viewer.appliedTransform) {
+                    await viewer.renderCombined(currentMode, viewer.appliedTransform.R, viewer.appliedTransform.t, viewer.appliedTransform.scale);
+                } else {
+                    await viewer.renderCombined(currentMode);
+                }
+            });
+
+            updateIterUI();
+        })();
+    </script>
+    <style>
+        .final-element {
+            white-space: nowrap;
+        }
+    </style>
+</head>
+
+<body style="padding: 0; margin: 0; width: 100%;">
+    <!-- Header section (white) -->
+    <div style="background: #fff; padding: 30px 5% 15px 5%;">
+    <div class="container-lg text-center" style="max-width: 1500px; margin: auto;" id="main">
+        <header role="banner">
+            <div class="row">
+                <h2 class="col-md-12 text-center">
+                    Cross-Instance Gaussian Splatting Registration via<br>Geometry-Aware Feature-Guided Alignment
+                </h2>
+            </div>
+            <div class="row text-center">
+                <div class="col-md-12">
+                    <a href="https://www.linkedin.com/in/roy-amoyal/" style="font-size: 22px; color: #6cacde;">Roy Amoyal<sup>1,3</sup></a>&nbsp;&nbsp;&nbsp;
+                    <a href="https://www.cs.bgu.ac.il/~orenfr/index.htm" style="font-size: 22px; color: #6cacde;">Oren Freifeld<sup>1,3</sup></a>&nbsp;&nbsp;&nbsp;
+                    <a href="https://chaimbaskin.bgu.ac.il/" style="font-size: 22px; color: #6cacde;">Chaim Baskin<sup>2</sup></a>
+                </div>
+                <div class="col-md-12" style="font-size: 17px; margin-top: 8px;">
+                    <sup>1</sup>Faculty of Computer and Information Science, BGU&nbsp;&nbsp;&nbsp;
+                    <sup>2</sup>School of Electrical and Computer Engineering, BGU&nbsp;&nbsp;&nbsp;
+                    <sup>3</sup>Institute for Applied AI Research, BGU<br>
+                    Ben-Gurion University of the Negev (BGU), Israel
+                </div>
+            </div>
+            <div class="row text-center" style="margin-top: 8px;">
+                <div class="col-md-12">
+                    <span style="color: #9b59b6; font-size: 1.5em;">CVPR 2026, Denver</span>
+                </div>
+            </div>
+            <!-- Links -->
+            <div class="row text-center" style="margin-top: 15px; margin-bottom: 5px;">
+                <div class="col-md-12">
+                    <a href="#" class="btn btn-dark btn-lg" style="margin: 5px; font-size: 18px;">
+                        <i class="ai ai-arxiv"></i> Paper
+                    </a>
+                    <a href="#" class="btn btn-dark btn-lg" style="margin: 5px; font-size: 18px;">
+                        <i class="fab fa-github"></i> Code
+                    </a>
+                </div>
+            </div>
+        </header>
+    </div>
+    </div>
+
+    <!-- Abstract section (light gray) -->
+    <div style="background: #f5f5f7; padding: 30px 5%;">
+    <div class="container-lg text-center" style="max-width: 1500px; margin: auto;">
+            <div class="row">
+                <div class="col-md-8 offset-md-2">
+                    <h3 style="text-align: center;">Abstract</h3>
+                    <p class="text-justify" style="text-align: left; font-size: 15px;">
+We present <b>Gaussian Splatting Alignment (GSA)</b>, a novel method for aligning two independent 3D Gaussian Splatting (3DGS) models via a similarity transformation (rotation; translation; scale), even when they are of different objects in the same category (e.g., different cars). In contrast, existing methods can only align 3DGS models of the same object (e.g., the same car) and often must be given true scale as input, while we estimate it successfully. Our approach leverages viewpoint-guided spherical map features to obtain robust correspondences and introduces a two-step optimization framework that aligns models while keeping the 3DGS models fixed. First, we perform an iterative feature-guided absolute orientation solver as our coarse registration, which is robust to extremely poor initialization (e.g., 180&deg; misalignment or a 10&times; scale gap), followed by a fine registration step enforcing multi-view feature consistency, inspired by inverse radiance-field formulations. The first step already achieves state-of-the-art performance, and the second further improves results. In the same-object case, GSA outperforms prior works, often by a large margin, even when the other methods are given the true scale. In the harder case of different objects in the same category, GSA vastly surpasses them, providing the first effective solution for category-level 3DGS registration and unlocking new applications.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Method Figure -->
+            <div class="row">
+                <div class="col-md-8 offset-md-2">
+                    <img src="assets/method_figure.png" width="100%" alt="Method overview figure">
+                </div>
+            </div>
+    </div>
+    </div>
+
+    <!-- Demo section (white) -->
+    <div style="background: #fff; padding: 30px 5%;">
+    <div class="container-lg text-center" style="max-width: 1500px; margin: auto;">
+            <!-- Demo: Registration -->
+            <div class="row col-md-10 offset-md-1">
+                <h2 style="text-align: center;">Interactive Coarse Registration Demo</h2>
+                <p style="text-align: center; margin-top: -5px; color: #555; font-size: 1.2em;">Iterative Feature-Guided Absolute Orientation Solver (R, s, t)</p>
+            </div>
+            <div class="row col-md-10 offset-md-1" style="background: transparent;">
+                    <p>Load two scenes, assign source/target, apply a random transformation, then run the coarse registration solver. Step through iterations to see the alignment progress.</p>
+
+                    <div id="reg-viewer">
+                        <!-- Transform controls: Random button | Sliders | Apply button -->
+                        <div style="margin-bottom: 10px; display: flex; align-items: center; gap: 12px; max-width: 660px; margin-left: auto; margin-right: auto;">
+                            <button id="reg-random-transform" class="btn btn-warning" style="white-space: nowrap; flex-shrink: 0;">Random<br>Transformation</button>
+
+                            <div style="font-size: 0.8em; flex: 1; min-width: 0;">
+                                <div style="display: flex; align-items: center; gap: 4px; margin-bottom: 3px;">
+                                    <label style="width: 42px; text-align: right; flex-shrink: 0;">Rot X</label>
+                                    <input type="range" id="reg-rot-x" min="-180" max="180" value="0" step="5" style="flex: 1;">
+                                    <span id="reg-rot-x-val" style="width: 38px; text-align: left; font-size: 0.9em;">0°</span>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 4px; margin-bottom: 3px;">
+                                    <label style="width: 42px; text-align: right; flex-shrink: 0;">Rot Y</label>
+                                    <input type="range" id="reg-rot-y" min="-180" max="180" value="0" step="5" style="flex: 1;">
+                                    <span id="reg-rot-y-val" style="width: 38px; text-align: left; font-size: 0.9em;">0°</span>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 4px; margin-bottom: 3px;">
+                                    <label style="width: 42px; text-align: right; flex-shrink: 0;">Rot Z</label>
+                                    <input type="range" id="reg-rot-z" min="-180" max="180" value="0" step="5" style="flex: 1;">
+                                    <span id="reg-rot-z-val" style="width: 38px; text-align: left; font-size: 0.9em;">0°</span>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 4px; margin-bottom: 3px;">
+                                    <label style="width: 42px; text-align: right; flex-shrink: 0;">Scale</label>
+                                    <input type="range" id="reg-scale" min="-1" max="1" value="0" step="0.05" style="flex: 1;">
+                                    <span id="reg-scale-val" style="width: 38px; text-align: left; font-size: 0.9em;">1.0</span>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 4px; margin-bottom: 3px;">
+                                    <label style="width: 42px; text-align: right; flex-shrink: 0;">Tx</label>
+                                    <input type="range" id="reg-tx" min="-5" max="5" value="0" step="0.1" style="flex: 1;">
+                                    <span id="reg-tx-val" style="width: 38px; text-align: left; font-size: 0.9em;">0</span>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 4px; margin-bottom: 3px;">
+                                    <label style="width: 42px; text-align: right; flex-shrink: 0;">Ty</label>
+                                    <input type="range" id="reg-ty" min="-5" max="5" value="0" step="0.1" style="flex: 1;">
+                                    <span id="reg-ty-val" style="width: 38px; text-align: left; font-size: 0.9em;">0</span>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 4px; margin-bottom: 3px;">
+                                    <label style="width: 42px; text-align: right; flex-shrink: 0;">Tz</label>
+                                    <input type="range" id="reg-tz" min="-5" max="5" value="0" step="0.1" style="flex: 1;">
+                                    <span id="reg-tz-val" style="width: 38px; text-align: left; font-size: 0.9em;">0</span>
+                                </div>
+                            </div>
+
+                            <button id="reg-apply-custom-transform" class="btn btn-info" style="white-space: nowrap; flex-shrink: 0;">Apply<br>Transformation</button>
+                        </div>
+
+                        <!-- Run Registration -->
+                        <div style="margin-bottom: 10px; text-align: center;">
+                            <button id="reg-run-icp" class="btn btn-success btn-lg">Run Registration</button>
+                        </div>
+
+                        <!-- Parameters -->
+                        <div style="margin-bottom: 10px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: center;">
+                            <div>
+                                <label class="form-label mb-0" style="font-size: 0.8em;">Max Iterations</label>
+                                <input type="number" id="reg-max-iter" class="form-control form-control-sm" value="8" min="1" max="100" style="width: 80px;">
+                            </div>
+                            <div>
+                                <label class="form-label mb-0" style="font-size: 0.8em;">Samples</label>
+                                <input type="number" id="reg-n-samples" class="form-control form-control-sm" value="5000" min="100" max="50000" style="width: 80px;">
+                            </div>
+                            <div>
+                                <label class="form-label mb-0" style="font-size: 0.8em;">Semantic Thresh</label>
+                                <input type="number" id="reg-sem-thresh" class="form-control form-control-sm" value="0.1" min="0.001" max="10" step="0.01" style="width: 80px;">
+                            </div>
+                        </div>
+
+                        <!-- Iteration slider -->
+                        <div style="margin-bottom: 10px; display: flex; gap: 10px; align-items: center; justify-content: center;">
+                            <label class="form-label mb-0"><strong>Iteration:</strong></label>
+                            <input type="range" id="reg-iter-slider" class="form-range" min="0" max="0" value="0" disabled style="width: 200px;">
+                            <span id="reg-iter-label" style="font-size: 0.85em;">Run solver first</span>
+                        </div>
+
+                        <!-- Progress -->
+                        <div id="reg-progress-container">
+                            <dialog id="reg-progress-dialog">
+                                <label for="reg-progress-indicator">Loading...</label>
+                                <progress max="100" id="reg-progress-indicator"></progress>
+                            </dialog>
+                        </div>
+
+                        <!-- Canvas -->
+                        <div style="text-align: center;">
+                            <canvas id="reg-canvas" class="w-100 rounded"
+                                style="max-width:640px; aspect-ratio: 1; cursor: grab; margin: 0 auto;"></canvas>
+                        </div>
+
+                        <!-- Mode toggle -->
+                        <div style="margin-top: 8px; text-align: center;">
+                            <button id="reg-mode-toggle" class="btn btn-primary btn-lg" style="font-size: 1.1em; padding: 12px 20px;">Show Features</button>
+                        </div>
+
+                        <!-- Status -->
+                        <div id="reg-status" style="font-size: 0.85em; color: #555; margin-top: 5px; text-align: center;">Loading models...</div>
+
+                        <!-- Source/Target selectors -->
+                        <div style="margin-top: 10px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: center;">
+                            <div>
+                                <label class="form-label mb-0"><strong>Source:</strong></label>
+                                <div class="btn-group" id="reg-source-selector">
+                                    <button class="btn btn-outline-danger reg-scene-btn active" data-scene="scene1">Car Orange</button>
+                                    <button class="btn btn-outline-danger reg-scene-btn" data-scene="scene2">Car Red</button>
+                                    <button class="btn btn-outline-danger reg-scene-btn" data-scene="scene3">Purple Car</button>
+                                    <button class="btn btn-outline-danger reg-scene-btn" data-scene="scene4">Police Car</button>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="form-label mb-0"><strong>Target:</strong></label>
+                                <div class="btn-group" id="reg-target-selector">
+                                    <button class="btn btn-outline-success reg-scene-btn" data-scene="scene1">Car Orange</button>
+                                    <button class="btn btn-outline-success reg-scene-btn active" data-scene="scene2">Car Red</button>
+                                    <button class="btn btn-outline-success reg-scene-btn" data-scene="scene3">Purple Car</button>
+                                    <button class="btn btn-outline-success reg-scene-btn" data-scene="scene4">Police Car</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+            </div>
+
+    </div>
+    </div>
+
+    <!-- Interactive Viewer section (light gray) -->
+    <div style="background: #f5f5f7; padding: 30px 5%;">
+    <div class="container-lg text-center" style="max-width: 1500px; margin: auto;">
+            <!-- Interactive 3DGS Viewer -->
+            <div class="row col-md-8 offset-md-2 rounded card" style="background-color: #f0f6fc; border: 1px solid #d4e2f0;">
+                <h2 style="text-align: center;">Interactive 3DGS Viewer</h2>
+                Explore our 3D Gaussian Splatting scenes. Toggle between RGB and learned features.
+                <div class="text-center" id="splat-picker">
+                    <div style="margin-bottom: 10px;" id="splat-scene-selector">
+                        <div class="btn-group btn-group-sm" style="margin-right: 10px;">
+                            <button class="btn btn-outline-secondary scene-btn active" data-scene="scene1">Car Orange</button>
+                            <button class="btn btn-outline-secondary scene-btn" data-scene="scene2">Car Red</button>
+                            <button class="btn btn-outline-secondary scene-btn" data-scene="scene3">Purple Car</button>
+                            <button class="btn btn-outline-secondary scene-btn" data-scene="scene4">Police Car</button>
+                        </div>
+                        <button id="splat-mode-toggle" class="btn btn-primary btn-sm">Show Features</button>
+                    </div>
+                    <div id="progress-container">
+                        <dialog open id="progress-dialog">
+                            <label for="progress-indicator">Loading model...</label>
+                            <progress max="100" id="progress-indicator"></progress>
+                        </dialog>
+                    </div>
+
+                    <canvas id="splat-canvas" class="w-100 rounded"
+                        style="max-width:440px; aspect-ratio: 1; cursor: grab; margin-left: auto;
+                        margin-right: auto;"></canvas>
+                </div>
+
+                <div class="splat-carousel position-relative" id="splat-carousel" role="group" aria-relevant="additions text">
+                    <div class="splat-carousel-items">
+                        <div id="splat-carousel-prototype">
+                            <div class="splat-carousel-item">
+                                <img class="card-img" style="user-drag: none;pointer-events: none; user-select:none;" src="">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="splat-carousel-buttons">
+                        <button class="splat-carousel-button left">&#8249;</button>
+                        <button class="splat-carousel-button right">&#8250;</button>
+                    </div>
+                </div>
+            </div>
+
+    </div>
+    </div>
+
+    <!-- Citation section (white) -->
+    <div style="background: #fff; padding: 30px 5%;">
+    <div class="container-lg" style="max-width: 1500px; margin: auto;">
+            <div class="row col-md-8 offset-md-2">
+                <h2 style="text-align: center;">Citation</h2>
+                <p style="text-align: center; color: #555;">If you find this work useful, please cite:</p>
+                <pre style="background: #f5f5f7; border: 1px solid #ddd; border-radius: 8px; padding: 16px; text-align: left; font-size: 0.85em; overflow-x: auto;">@inproceedings{Amoyal:CVPR:2026:GSA,
+      title={{Cross-Instance Gaussian Splatting Registration via Geometry-Aware Feature-Guided Alignment}},
+      author={Amoyal, Roy and Freifeld, Oren and Baskin, Chaim},
+      year={2026},
+      booktitle={CVPR},
+}</pre>
+            </div>
+    </div>
+    </div>
+
+    <!-- Footer section (white) -->
+    <div style="background: #fff; padding: 20px 5%;">
+    <div class="container-lg text-center" style="max-width: 1500px; margin: auto;">
+
+            <!-- Old CAT3D content hidden below -->
+            <div style="display:none;">
+            <div class="row">
+                <div class="col-md-8 offset-md-2">
+                    <h3>
+                        Comparisons to other methods
+                    </h3>
+
+                    <p class="text-justify" style="text-align: left;">
+                        Compare the renders and depth maps of our method CAT3D (right) with baseline methods (left). Try selecting different
+                        methods and scenes!
+                    </p>
+
+                    <div id="single-image-compare">
+                        <div class="row m-2">
+                            <div class="col-md-10">
+                                <ul class="nav nav-pills justify-content-center" role="navigation">
+                                    <li class="nav-item">
+                                        <a class="nav-link disabled" href="#" tabindex="-1" aria-disabled="true"
+                                            style="width: 110px"><strong>Comparison method:</strong></a>
+                                    </li>
+                                    <li class="nav-item method-pill" data-value="realmdreamer"><a class="nav-link active">RealmDreamer <span style="font-size: 10px;"><br>(Single View)</span></a></li>
+                                    <li class="nav-item method-pill" data-value="zero_nvs"><a class="nav-link">ZeroNVS <span style="font-size: 10px;"><br>(Single View)</span></a></li>
+                                    <li class="nav-item method-pill" data-value="image_dream"><a class="nav-link">ImageDream <span style="font-size: 10px;"><br>(Single View)</span></a> </li>
+                                    <li class="nav-item method-pill" data-value="zipnerf"><a class="nav-link">ZipNeRF <span style="font-size: 10px;"><br>(3 View)</span></a></li>
+                                    <li class="nav-item method-pill" data-value="reconfusion"><a class="nav-link">ReconFusion <span style="font-size: 10px;"><br>(3 View)</span></a></li>
+                                </ul>
+                            </div>
+
+                            <div class="btn-group btn-group-sm col-md-2 d-flex align-items-center" style="padding-top: 5px" id="mode-buttons">
+                                <button class="btn btn-primary mode-pill float-right active" data-value="rgb">
+                                    RGB
+                                </button>
+                                <button class="btn btn-primary mode-pill float-right" data-value="depth">
+                                    Depth
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="video-container container position-relative p-0">
+
+                            <video class="video col-6" id="single-comp-left" loop playsinline autoplay muted>
+                            </video><video class="video col-6" id="single-comp-right" loop playsinline autoplay muted>
+                            </video>
+
+                            <div class="overlay position-absolute bg-dark top-0 start-0 text-white p-1 opacity-75"
+                                id="single-comp-label-left">Baseline</div>
+                            <div class="overlay position-absolute bg-dark top-0 start-50 text-white p-1 opacity-75"
+                                id="single-comp-label-right"><img src="img/cat3D.png" style="width: 48px;"></div>
+                        </div>
+
+                        <div class="pill-row scene-pills" id="realmdreamer-pills" role="group" aria-relevant="additions text">
+                            <div class="pill scene-pill" data-value="arcade">
+                                <img class="card-img" src="thumbnails/realmdreamer/arcade.jpg">
+                            </div>
+                            <div class="pill scene-pill" data-value="bathroom2">
+                                <img class="card-img" src="thumbnails/realmdreamer/bathroom2.png">
+                            </div>
+                            <div class="pill scene-pill" data-value="bear">
+                                <img class="card-img" src="thumbnails/realmdreamer/bear.png">
+                            </div>
+                            <div class="pill scene-pill" data-value="bedroom3">
+                                <img class="card-img" src="thumbnails/realmdreamer/bedroom3.png">
+                            </div>
+                            <div class="pill scene-pill" data-value="bust">
+                                <img class="card-img" src="thumbnails/realmdreamer/bust.png">
+                            </div>
+                            <div class="pill scene-pill" data-value="car">
+                                <img class="card-img" src="thumbnails/realmdreamer/car.png">
+                            </div>
+                            <div class="pill scene-pill" data-value="forest">
+                                <img class="card-img" src="thumbnails/realmdreamer/forest.jpg">
+                            </div>
+                            <div class="pill scene-pill" data-value="kitchen">
+                                <img class="card-img" src="thumbnails/realmdreamer/kitchen.png">
+                            </div>
+                            <div class="pill scene-pill" data-value="lighthouse">
+                                <img class="card-img" src="thumbnails/realmdreamer/lighthouse.png">
+                            </div>
+                            <div class="pill scene-pill" data-value="piano">
+                                <img class="card-img" src="thumbnails/realmdreamer/piano.jpg">
+                            </div>
+                            <div class="pill scene-pill" data-value="resolute">
+                                <img class="card-img" src="thumbnails/realmdreamer/resolute.png">
+                            </div>
+                            <div class="pill scene-pill" data-value="steampunk">
+                                <img class="card-img" src="thumbnails/realmdreamer/steampunk.jpg">
+                            </div>
+                            <div class="pill scene-pill" data-value="victorian">
+                                <img class="card-img" src="thumbnails/realmdreamer/victorian.jpg">
+                            </div>
+                        </div>
+
+                        <div class="pill-row scene-pills" id="zero_nvs-pills" role="group" aria-relevant="additions text">
+                            <div class="pill scene-pill" data-value="bicycle">
+                                <img class="card-img" src="thumbnails/zero_nvs/bicycle.png">
+                            </div>
+
+                            <div class="pill scene-pill" data-value="bonsai">
+                                <img class="card-img" src="thumbnails/zero_nvs/bonsai.png">
+                            </div>
+
+                            <div class="pill scene-pill" data-value="counter">
+                                <img class="card-img" src="thumbnails/zero_nvs/counter.png">
+                            </div>
+
+                            <div class="pill scene-pill" data-value="flowers">
+                                <img class="card-img" src="thumbnails/zero_nvs/flowers.png">
+                            </div>
+
+                            <div class="pill scene-pill" data-value="garden">
+                                <img class="card-img" src="thumbnails/zero_nvs/garden.png">
+                            </div>
+
+                            <div class="pill scene-pill" data-value="kitchen">
+                                <img class="card-img" src="thumbnails/zero_nvs/kitchen.png">
+                            </div>
+
+                            <div class="pill scene-pill" data-value="room">
+                                <img class="card-img" src="thumbnails/zero_nvs/room.png">
+                            </div>
+
+                            <div class="pill scene-pill" data-value="stump">
+                                <img class="card-img" src="thumbnails/zero_nvs/stump.png">
+                            </div>
+
+                            <div class="pill scene-pill" data-value="treehill">
+                                <img class="card-img" src="thumbnails/zero_nvs/treehill.png">
+                            </div>
+                        </div>
+
+                        <div class="pill-row scene-pills" id="zipnerf-pills" role="group" aria-relevant="additions text">
+                            <div class="pill scene-pill" data-value="bicycle">
+                                <img class="card-img" src="thumbnails/reconfusion/bicycle.png">
+                            </div>
+                        
+                            <div class="pill scene-pill" data-value="bonsai">
+                                <img class="card-img" src="thumbnails/reconfusion/bonsai.png">
+                            </div>
+                        
+                            <div class="pill scene-pill" data-value="counter">
+                                <img class="card-img" src="thumbnails/reconfusion/counter.png">
+                            </div>
+                        
+                            <div class="pill scene-pill" data-value="flowers">
+                                <img class="card-img" src="thumbnails/reconfusion/flowers.png">
+                            </div>
+                        
+                            <div class="pill scene-pill" data-value="garden">
+                                <img class="card-img" src="thumbnails/reconfusion/garden.png">
+                            </div>
+                        
+                            <div class="pill scene-pill" data-value="kitchen">
+                                <img class="card-img" src="thumbnails/reconfusion/kitchen.png">
+                            </div>
+                        
+                            <div class="pill scene-pill" data-value="room">
+                                <img class="card-img" src="thumbnails/reconfusion/room.png">
+                            </div>
+                        
+                            <div class="pill scene-pill" data-value="stump">
+                                <img class="card-img" src="thumbnails/reconfusion/stump.png">
+                            </div>
+                        
+                            <div class="pill scene-pill" data-value="treehill">
+                                <img class="card-img" src="thumbnails/reconfusion/treehill.png">
+                            </div>
+
+                            <div class="pill scene-pill" data-value="co3d_apple_110_13051_23361">
+                                <img class="card-img" src="thumbnails/reconfusion/co3d_apple_110_13051_23361.png">
+                            </div>  
+  
+
+                            <div class="pill scene-pill" data-value="co3d_ball_123_14352_28341">
+                                <img class="card-img" src="thumbnails/reconfusion/co3d_ball_123_14352_28341.png">
+                            </div>  
+  
+
+                            <div class="pill scene-pill" data-value="co3d_bench_167_18175_33897">
+                                <img class="card-img" src="thumbnails/reconfusion/co3d_bench_167_18175_33897.png">
+                            </div>  
+  
+
+                            <div class="pill scene-pill" data-value="co3d_bench_185_19987_38634">
+                                <img class="card-img" src="thumbnails/reconfusion/co3d_bench_185_19987_38634.png">
+                            </div>  
+  
+
+                            <div class="pill scene-pill" data-value="co3d_cake_201_21631_44304">
+                                <img class="card-img" src="thumbnails/reconfusion/co3d_cake_201_21631_44304.png">
+                            </div>  
+  
+
+                            <div class="pill scene-pill" data-value="co3d_donut_198_21296_42378">
+                                <img class="card-img" src="thumbnails/reconfusion/co3d_donut_198_21296_42378.png">
+                            </div>  
+  
+
+                            <div class="pill scene-pill" data-value="co3d_donut_290_30761_58510">
+                                <img class="card-img" src="thumbnails/reconfusion/co3d_donut_290_30761_58510.png">
+                            </div>  
+  
+
+                            <div class="pill scene-pill" data-value="co3d_hydrant_134_15451_31119">
+                                <img class="card-img" src="thumbnails/reconfusion/co3d_hydrant_134_15451_31119.png">
+                            </div>  
+  
+
+                            <div class="pill scene-pill" data-value="co3d_hydrant_147_16374_32167">
+                                <img class="card-img" src="thumbnails/reconfusion/co3d_hydrant_147_16374_32167.png">
+                            </div>  
+  
+
+                            <div class="pill scene-pill" data-value="co3d_plant_188_20319_36755">
+                                <img class="card-img" src="thumbnails/reconfusion/co3d_plant_188_20319_36755.png">
+                            </div>  
+  
+
+                            <div class="pill scene-pill" data-value="co3d_plant_188_20360_39345">
+                                <img class="card-img" src="thumbnails/reconfusion/co3d_plant_188_20360_39345.png">
+                            </div>  
+  
+
+                            <div class="pill scene-pill" data-value="co3d_suitcase_197_21239_42788">
+                                <img class="card-img" src="thumbnails/reconfusion/co3d_suitcase_197_21239_42788.png">
+                            </div>  
+  
+
+                            <div class="pill scene-pill" data-value="co3d_suitcase_247_26503_52258">
+                                <img class="card-img" src="thumbnails/reconfusion/co3d_suitcase_247_26503_52258.png">
+                            </div>  
+  
+
+                            <div class="pill scene-pill" data-value="co3d_teddybear_118_13848_27594">
+                                <img class="card-img" src="thumbnails/reconfusion/co3d_teddybear_118_13848_27594.png">
+                            </div>  
+  
+
+                            <div class="pill scene-pill" data-value="co3d_teddybear_159_17485_33236">
+                                <img class="card-img" src="thumbnails/reconfusion/co3d_teddybear_159_17485_33236.png">
+                            </div>  
+  
+
+                            <div class="pill scene-pill" data-value="co3d_vase_101_11754_20739">
+                                <img class="card-img" src="thumbnails/reconfusion/co3d_vase_101_11754_20739.png">
+                            </div>  
+  
+
+                            <div class="pill scene-pill" data-value="co3d_vase_118_13872_29491">
+                                <img class="card-img" src="thumbnails/reconfusion/co3d_vase_118_13872_29491.png">
+                            </div>  
+  
+                        </div>
+
+                        <div class="pill-row scene-pills" id="reconfusion-pills" role="group" aria-relevant="additions text">
+                            <div class="pill scene-pill" data-value="bicycle">
+                                <img class="card-img" src="thumbnails/reconfusion/bicycle.png">
+                            </div>
+
+                            <div class="pill scene-pill" data-value="bonsai">
+                                <img class="card-img" src="thumbnails/reconfusion/bonsai.png">
+                            </div>
+
+                            <div class="pill scene-pill" data-value="counter">
+                                <img class="card-img" src="thumbnails/reconfusion/counter.png">
+                            </div>
+
+                            <div class="pill scene-pill" data-value="flowers">
+                                <img class="card-img" src="thumbnails/reconfusion/flowers.png">
+                            </div>
+
+                            <div class="pill scene-pill" data-value="garden">
+                                <img class="card-img" src="thumbnails/reconfusion/garden.png">
+                            </div>
+
+                            <div class="pill scene-pill" data-value="kitchen">
+                                <img class="card-img" src="thumbnails/reconfusion/kitchen.png">
+                            </div>
+
+                            <div class="pill scene-pill" data-value="room">
+                                <img class="card-img" src="thumbnails/reconfusion/room.png">
+                            </div>
+
+                            <div class="pill scene-pill" data-value="stump">
+                                <img class="card-img" src="thumbnails/reconfusion/stump.png">
+                            </div>
+
+                            <div class="pill scene-pill" data-value="treehill">
+                                <img class="card-img" src="thumbnails/reconfusion/treehill.png">
+                            </div>
+
+                            <div class="pill scene-pill" data-value="co3d_apple_110_13051_23361">
+                                <img class="card-img" src="thumbnails/reconfusion/co3d_apple_110_13051_23361.png">
+                            </div>  
+  
+
+                            <div class="pill scene-pill" data-value="co3d_ball_123_14352_28341">
+                                <img class="card-img" src="thumbnails/reconfusion/co3d_ball_123_14352_28341.png">
+                            </div>  
+  
+
+                            <div class="pill scene-pill" data-value="co3d_bench_167_18175_33897">
+                                <img class="card-img" src="thumbnails/reconfusion/co3d_bench_167_18175_33897.png">
+                            </div>  
+  
+
+                            <div class="pill scene-pill" data-value="co3d_bench_185_19987_38634">
+                                <img class="card-img" src="thumbnails/reconfusion/co3d_bench_185_19987_38634.png">
+                            </div>  
+  
+
+                            <div class="pill scene-pill" data-value="co3d_cake_201_21631_44304">
+                                <img class="card-img" src="thumbnails/reconfusion/co3d_cake_201_21631_44304.png">
+                            </div>  
+  
+
+                            <div class="pill scene-pill" data-value="co3d_donut_198_21296_42378">
+                                <img class="card-img" src="thumbnails/reconfusion/co3d_donut_198_21296_42378.png">
+                            </div>  
+  
+
+                            <div class="pill scene-pill" data-value="co3d_donut_290_30761_58510">
+                                <img class="card-img" src="thumbnails/reconfusion/co3d_donut_290_30761_58510.png">
+                            </div>  
+  
+
+                            <div class="pill scene-pill" data-value="co3d_hydrant_134_15451_31119">
+                                <img class="card-img" src="thumbnails/reconfusion/co3d_hydrant_134_15451_31119.png">
+                            </div>  
+  
+
+                            <div class="pill scene-pill" data-value="co3d_hydrant_147_16374_32167">
+                                <img class="card-img" src="thumbnails/reconfusion/co3d_hydrant_147_16374_32167.png">
+                            </div>  
+  
+
+                            <div class="pill scene-pill" data-value="co3d_plant_188_20319_36755">
+                                <img class="card-img" src="thumbnails/reconfusion/co3d_plant_188_20319_36755.png">
+                            </div>  
+  
+
+                            <div class="pill scene-pill" data-value="co3d_plant_188_20360_39345">
+                                <img class="card-img" src="thumbnails/reconfusion/co3d_plant_188_20360_39345.png">
+                            </div>  
+  
+
+                            <div class="pill scene-pill" data-value="co3d_suitcase_197_21239_42788">
+                                <img class="card-img" src="thumbnails/reconfusion/co3d_suitcase_197_21239_42788.png">
+                            </div>  
+  
+
+                            <div class="pill scene-pill" data-value="co3d_suitcase_247_26503_52258">
+                                <img class="card-img" src="thumbnails/reconfusion/co3d_suitcase_247_26503_52258.png">
+                            </div>  
+  
+
+                            <div class="pill scene-pill" data-value="co3d_teddybear_118_13848_27594">
+                                <img class="card-img" src="thumbnails/reconfusion/co3d_teddybear_118_13848_27594.png">
+                            </div>  
+  
+
+                            <div class="pill scene-pill" data-value="co3d_teddybear_159_17485_33236">
+                                <img class="card-img" src="thumbnails/reconfusion/co3d_teddybear_159_17485_33236.png">
+                            </div>  
+  
+
+                            <div class="pill scene-pill" data-value="co3d_vase_101_11754_20739">
+                                <img class="card-img" src="thumbnails/reconfusion/co3d_vase_101_11754_20739.png">
+                            </div>  
+  
+
+                            <div class="pill scene-pill" data-value="co3d_vase_118_13872_29491">
+                                <img class="card-img" src="thumbnails/reconfusion/co3d_vase_118_13872_29491.png">
+                            </div>  
+  
+                        </div>
+
+                        <div class="pill-row scene-pills" id="image_dream-pills" role="group" aria-relevant="additions text">
+                            <div class="pill scene-pill" data-value="bear">
+                                <img class="card-img" src="thumbnails/image_dream/bear.png">
+                            </div>
+                            <div class="pill scene-pill" data-value="corgi">
+                                <img class="card-img" src="thumbnails/image_dream/corgi.png">
+                            </div>
+                            <div class="pill scene-pill" data-value="frog">
+                                <img class="card-img" src="thumbnails/image_dream/frog.png">
+                            </div>
+                            <div class="pill scene-pill" data-value="ghost">
+                                <img class="card-img" src="thumbnails/image_dream/ghost.png">
+                            </div>
+                            <div class="pill scene-pill" data-value="house">
+                                <img class="card-img" src="thumbnails/image_dream/house.png">
+                            </div>
+                            <div class="pill scene-pill" data-value="katana">
+                                <img class="card-img" src="thumbnails/image_dream/katana.png">
+                            </div>
+                            <div class="pill scene-pill" data-value="mech">
+                                <img class="card-img" src="thumbnails/image_dream/mech.png">
+                            </div>
+                            <div class="pill scene-pill" data-value="pig">
+                                <img class="card-img" src="thumbnails/image_dream/pig.png">
+                            </div>
+                            <div class="pill scene-pill" data-value="pile">
+                                <img class="card-img" src="thumbnails/image_dream/pile.png">
+                            </div>
+                            <div class="pill scene-pill" data-value="tank">
+                                <img class="card-img" src="thumbnails/image_dream/tank.png">
+                            </div>
+                        </div>
+                    </div>
+
+                    <script>
+                        playbackSpeeds = {
+                            "realmdreamer": [3.0, 1.0],
+                            "zero_nvs": [1.5, 1.0],
+                            "zipnerf": [1.5, 1.0],
+                            "reconfusion": [1.5, 1.0],
+                            "image_dream": [1.5, 1.0],
+                        };
+
+                        aspectRatios = {
+                            "realmdreamer": 1.0,
+                            "zero_nvs": 1.5,
+                            "zipnerf": 1.5,
+                            "reconfusion": 1.5,
+                            "image_dream": 1.0,
+                        }
+
+                        labels = {
+                            "realmdreamer": "RealmDreamer",
+                            "zero_nvs": "ZeroNVS",
+                            "zipnerf": "ZipNeRF (3-view)",
+                            "reconfusion": "ReconFusion (3-view)",
+                            "image_dream": "ImageDream",
+                        }
+
+                        compareDiv = document.querySelector("#single-image-compare")
+                        activeMethod = "realmdreamer"
+                        activeScene = "bear"
+                        activeMode = "rgb"
+
+                        // Select all elements with the class 'method-pill'
+                        const methodPills = compareDiv.querySelectorAll('.method-pill');
+                        const modePillParent = compareDiv.querySelector('#mode-buttons')
+                        const modePills = modePillParent.querySelectorAll('.mode-pill')
+
+                        for (modePill of modePills) {
+                            modePill.addEventListener('click', function () {
+                                activeMode = this.getAttribute('data-value');
+                                updateDisplay();
+                            });
+                        }
+
+
+                        const videoParent = compareDiv.querySelector(".video-container");
+                        const leftVideo = videoParent.querySelector('#single-comp-left')
+                        const leftLabel = videoParent.querySelector("#single-comp-label-left")
+                        const rightVideo = videoParent.querySelector('#single-comp-right')
+                        const scenePillContainers = compareDiv.querySelectorAll(`.scene-pills`);
+
+                        for (methodPill of methodPills) {
+                            const method = methodPill.getAttribute('data-value');
+                            // Select all scene pill containers
+                            const scenePillContainer = compareDiv.querySelector(`#${method}-pills`);
+                            const scenePills = scenePillContainer.querySelectorAll(".scene-pill")
+
+                            for (scenePill of scenePills) {
+                                scenePill.addEventListener('click', function () {
+                                    activeScene = this.getAttribute("data-value")
+                                    console.log(activeScene);
+                                    updateDisplay();
+                                });
+                            }
+
+                            // Attach a click event listener to each pill
+                            methodPill.addEventListener('click', function () {
+                                activeMethod = method
+                                activeMode = "rgb"
+                                const scenePillContainer = compareDiv.querySelector(`#${method}-pills`);
+                                const scenePills = scenePillContainer.querySelectorAll(".scene-pill")
+                                activeScene = scenePills[0].getAttribute("data-value")
+                                updateDisplay();
+                            });
+                        }
+
+                        function updateDisplay() {
+                            if (activeMethod == 'image_dream') {
+                                modePillParent.style.display = 'none';
+                            } else {
+                                modePillParent.style.display = '';
+                            }
+                            // Update active pill
+
+                            methodPills.forEach(p => p.classList.remove('active'));
+                            methodPills.forEach(methodPill => {
+                                if (methodPill.getAttribute('data-value') == activeMethod) {
+                                    methodPill.querySelector('a').classList.add('active');
+                                } else {
+                                    methodPill.querySelector('a').classList.remove('active')
+                                }
+                            });
+
+                            // Update mode pill
+                            for (modePill of modePills) {
+                                if (modePill.getAttribute('data-value') === activeMode) {
+                                    modePill.classList.add('active');
+                                } else {
+                                    modePill.classList.remove('active');
+                                }
+                            }
+
+                            // Show/Hide scene pill containers based on the selected method
+                            scenePillContainers.forEach(container => {
+                                if (container.id === `${activeMethod}-pills`) {
+                                    container.style.display = ''; // Or 'block' depending on your layout
+                                } else {
+                                    container.style.display = 'none';
+                                }
+                            });
+
+                            const scenePillContainer = compareDiv.querySelector(`#${activeMethod}-pills`);
+                            const scenePills = scenePillContainer.querySelectorAll(".scene-pill")
+
+                            for (scenePill of scenePills) {
+                                if (scenePill.getAttribute('data-value') == activeScene) {
+                                    scenePill.classList.add('active');
+                                } else {
+                                    scenePill.classList.remove('active')
+                                }
+                            }
+
+                            var zdist = "";
+                            if (activeMode == "depth") {
+                                zdist = "_zdist";
+                            }
+
+                            // Update video display. This still has a small flash, could double buffer the video like before, but
+                            // as long as the layout stays consistent it really isn't bad.
+                            leftVideo.src = `videos/comparison/${activeMethod}/baseline/${activeScene}${zdist}.webm`
+                            rightVideo.src = `videos/comparison/${activeMethod}/ours/${activeScene}${zdist}.webm`
+
+                            var [lr, rr] = playbackSpeeds[activeMethod];
+                            leftVideo.playbackRate = lr;
+                            rightVideo.playbackRate = rr;
+
+                            videoParent.style.aspectRatio = aspectRatios[activeMethod] * 2.0;
+
+                            console.log(leftLabel)
+                            console.log(leftLabel.innerHtml)
+
+                            leftLabel.innerHTML = labels[activeMethod];
+                        }
+                        // Update initial display
+                        updateDisplay()
+                    </script>
+                </div>
+            </div>
+
+            <br>
+            <br>
+            <br>
+            <br>
+
+            <div class="row">
+                <div class="col-md-8 offset-md-2">
+                    <h3> Method overview </h3>
+                    <image width=100% src="img/method.jpg"
+                        alt="A diagram explaining the method in broad strokes, like explained in the caption."></image>
+
+                    <figcaption class="text-justify margin-5" style="text-align: left;">
+                    CAT3D uses a <b>multi-view latent diffusion model</b> to generate novel views of the scene. This model can be conditioned on any number of <font color="#5583A8"><b>observed views</b></font>  (input images with corresponding camera poses embedded as ray coordinates), and is trained to produce multiple consistent <font color="#E3B555"><b>novel images</b></font> of the scene at specified <font color="#924956"><b>target viewpoints</b></font>. This architecture is similar to video diffusion models, but with camera pose embeddings for each image instead of time embeddings. The generated views are passed into a robust 3D reconstruction pipeline to create the 3D representation (Zip-NeRF or 3DGS).
+                    </p>
+                </div>
+            </div>
+
+            <div class="col-md-8 offset-md-2 text-start">
+                <h4>
+                    Acknowledgements
+                </h4>
+
+                <p class="text-justify" style="text-align: left;">
+                    We would like to thank Daniel Watson, Rundi Wu, Richard Tucker, Jason Baldridge, Michael Niemeyer, Rick
+                    Szeliski, Dana Roth, Jordi Pont-Tuset, Andeep Torr, Irina Blok, Doug Eck, and Henna Nandwani for their valuable
+                    contributions to this work. We also extend our gratitude to Shlomi Fruchter, Kevin Murphy, Mohammad Babaeizadeh, Han Zhang and Amir Hertz for training the base text-to-image latent diffusion model.
+                    <br><br><br>
+                </p>
+            </div>
+            <div class="row justify-content-center">
+                <div class="col-md-5 center text-start">
+                    <label style="display: inline" for="bibtex">
+                        <h4 style="text-align: center">BibTeX </h4>
+                    </label>
+                    <textarea id="bibtex" class="form-control" readonly>
+@article{gao2024cat3d,
+    title={CAT3D: Create Anything in 3D with Multi-View Diffusion Models},
+    author={Ruiqi Gao* and Aleksander Holynski* and Philipp Henzler and Arthur Brussee and Ricardo Martin-Brualla and Pratul P. Srinivasan and Jonathan T. Barron and Ben Poole*
+    },
+    journal={Advances in Neural Information Processing Systems},
+    year={2024}
+}
+                        </textarea>
+                </div>
+            </div>
+
+            <div class="row justify-content-center">
+                <div class="col-8">
+                    <video class="w-100 h-100" style="max-width:200px" src="videos/teaser/wizard_cat.mp4" muted loop autoplay playsinline>An animated illustrated cat paws at an
+                        image. It turns into a 3D cat head!</video>
+                </div>
+            </div>
+            </div> <!-- end hidden old CAT3D content -->
+
+
+        <footer>
+            <div class="row">
+                <div class="col-md-8 offset-md-2 text-start">
+                    <p class="text-justify" style="text-align: left;">
+                        <i>
+                            The website template was borrowed from <a href="https://cat3d.github.io">CAT3D</a>.
+                        </i>
+                    </p>
+                </div>
+            </div>
+        </footer>
+    </div>
+    </div>
+</body>
+
+</html>
