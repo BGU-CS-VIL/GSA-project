@@ -491,9 +491,28 @@
                     <a href="#" class="btn btn-dark btn-lg" style="margin: 5px; font-size: 18px;">
                         <i class="fab fa-github"></i> Code
                     </a>
+                    <a href="#demo-section" class="btn btn-dark btn-lg" style="margin: 5px; font-size: 18px;">
+                        <i class="fa fa-gamepad"></i> Demo
+                    </a>
                 </div>
             </div>
         </header>
+    </div>
+    </div>
+
+    <!-- Teaser Video -->
+    <div style="background: #fff; padding: 0 5% 20px 5%;">
+    <div class="container-lg text-center" style="max-width: 1100px; margin: auto;">
+        <video id="teaser-video" width="100%" loop muted playsinline controls>
+            <source src="assets/teaser_final.mp4" type="video/mp4">
+        </video>
+        <script>
+            (function() {
+                var vid = document.getElementById('teaser-video');
+                vid.volume = 0.5;
+                vid.play().catch(function() {});
+            })();
+        </script>
     </div>
     </div>
 
@@ -519,7 +538,7 @@ We present <b>Gaussian Splatting Alignment (GSA)</b>, a novel method for alignin
     </div>
 
     <!-- Demo section (white) -->
-    <div style="background: #fff; padding: 30px 5%;">
+    <div id="demo-section" style="background: #fff; padding: 30px 5%;">
     <div class="container-lg text-center" style="max-width: 1500px; margin: auto;">
             <!-- Demo: Registration -->
             <div class="row col-md-10 offset-md-1">
